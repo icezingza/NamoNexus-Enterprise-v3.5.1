@@ -23,8 +23,8 @@ NamoNexus Enterprise v3.5.1 คือร่างสมบูรณ์ (Referenc
 ## 📦 Quick Start
 ```bash
 # 1. Clone & Enter
-git clone [https://github.com/your-org/namo-nexus-enterprise-v3.git](https://github.com/your-org/namo-nexus-enterprise-v3.git)
-cd namo-nexus-enterprise-v3
+git clone https://github.com/icezingza/NamoNexus-Enterprise-v3.5.1.git
+cd NamoNexus-Enterprise-v3.5.1
 
 # 2. Deploy with Docker (One-click)
 docker-compose up -d --build
