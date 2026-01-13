@@ -1,0 +1,20 @@
+{"text":"I want to kill myself.","label":"critical"}
+{"text":"I want to end it all.","label":"critical"}
+{"text":"I want to hurt myself.","label":"critical"}
+{"text":"I cannot go on, no reason to live.","label":"critical"}
+{"text":"kill myself end it all hurt myself no reason to live.","label":"critical"}
+{"text":"I cannot go on and I want to end it all and kill myself.","label":"critical"}
+{"text":"no reason to live and I want to hurt myself.","label":"critical"}
+{"text":"I want to end it all and hurt myself.","label":"critical"}
+{"text":"I can't go on.","label":"critical"}
+{"text":"no reason to live.","label":"critical"}
+{"text":"I feel calm and open today.","label":"non_critical"}
+{"text":"I am feeling happy today.","label":"non_critical"}
+{"text":"I want to help my friend.","label":"non_critical"}
+{"text":"This project is challenging but I will keep trying.","label":"non_critical"}
+{"text":"I need support with my schedule.","label":"non_critical"}
+{"text":"I am stressed about work but safe.","label":"non_critical"}
+{"text":"We should plan dinner tonight.","label":"non_critical"}
+{"text":"I feel neutral.","label":"non_critical"}
+{"text":"I need a break and some rest.","label":"non_critical"}
+{"text":"I am worried about exams.","label":"non_critical"}

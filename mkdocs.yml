@@ -1,0 +1,13 @@
+site_name: NamoNexus Enterprise v3.5.1 Docs
+site_description: NamoNexus Enterprise v3.5.1 documentation
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - Architecture: architecture_overview.md
+  - API Reference: api_reference.md
+  - Deployment: deployment_guide.md
+  - Infrastructure: infrastructure_hardware_specs.md
+  - Operations: scale_up_operations_manual.md
+  - Pitch: pitch.md
+  - Roadmap: roadmap_v2_v3.md

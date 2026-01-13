@@ -1,0 +1,44 @@
+# --- Python & System ---
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+
+# --- Environment & Secrets (do not leak) ---
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# --- Logs & Databases ---
+*.log
+logs/
+data/memory_log.json
+data/chroma_db/
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# --- IDE & Editors ---
+.vscode/
+.idea/
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+test_output.txt
+health_report.txt
+# --- Reports ---
+reports/
+# --- Diagnostics ---
+diagnostic_output.txt
+diagnostic_server.err
+server.log
+server.err
+
+# v1.0 production cleanup
+research/
