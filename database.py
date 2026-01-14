@@ -6,7 +6,9 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from cache import CacheBackend, DEFAULT_CACHE_TTL, InMemoryCache
 
 
 class DatabaseConnectionPool:
@@ -103,8 +105,9 @@ class DatabaseConnectionPool:
 class GridIntelligence:
     """Sovereign storage layer using SQLite with a connection pool."""
 
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str, cache: Optional[CacheBackend] = None) -> None:
         self.db_pool = DatabaseConnectionPool(db_path, pool_size=10)
+        self.cache = cache or InMemoryCache()
 
     def store_sovereign(self, data: Dict) -> None:
         """Store conversation data; embeddings (paraphrase-multilingual-MiniLM-L12-v2) can be added later."""
@@ -128,6 +131,8 @@ class GridIntelligence:
                     "TH-GRID-01",
                 ),
             )
+        self._invalidate_session_cache(data["session_id"])
+        self._invalidate_global_cache()
 
     def create_crisis_alert(self, data: Dict) -> List[str]:
         empathy_prompts = self._generate_empathy_prompts(data["risk_level"])
@@ -147,6 +152,8 @@ class GridIntelligence:
                     datetime.now().isoformat(),
                 ),
             )
+        self._invalidate_session_cache(data["session_id"])
+        self._invalidate_global_cache()
         return empathy_prompts
 
     def _generate_empathy_prompts(self, risk_level: str) -> List[str]:
@@ -172,6 +179,10 @@ class GridIntelligence:
         return prompts.get(risk_level, prompts["low"])
 
     def get_session_history(self, session_id: str) -> List[Dict]:
+        cache_key = self._cache_key("session_history", session_id)
+        cached = self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -182,7 +193,7 @@ class GridIntelligence:
                 """,
                 (session_id,),
             )
-            return [
+            result = [
                 {
                     "message": row[0],
                     "response": row[1],
@@ -192,8 +203,14 @@ class GridIntelligence:
                 }
                 for row in cursor.fetchall()
             ]
+        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
+        return result
 
     def get_alerts(self, session_id: str) -> List[Dict]:
+        cache_key = self._cache_key("session_alerts", session_id)
+        cached = self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -215,10 +232,16 @@ class GridIntelligence:
                         "resolved": bool(row[3]),
                     }
                 )
-            return alerts
+            result = alerts
+        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
+        return result
 
     def get_global_metrics(self) -> List[Dict]:
         """Fetch historical risk levels and dharma scores for graph visualization."""
+        cache_key = self._cache_key("global_metrics")
+        cached = self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -228,13 +251,19 @@ class GridIntelligence:
                 LIMIT 100
                 """
             )
-            return [
+            result = [
                 {"time": row[0], "risk": row[1], "dharma": row[2]}
                 for row in cursor.fetchall()
             ]
+        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
+        return result
 
     def get_recent_sessions(self) -> List[Dict]:
         """Fetch unique recent sessions for the monitor."""
+        cache_key = self._cache_key("recent_sessions")
+        cached = self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -244,13 +273,19 @@ class GridIntelligence:
                 LIMIT 20
                 """
             )
-            return [
+            result = [
                 {"session_id": row[0], "user_id": row[1], "last_active": row[2]}
                 for row in cursor.fetchall()
             ]
+        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
+        return result
 
     def get_all_alerts(self) -> List[Dict]:
         """Fetch all active crisis alerts."""
+        cache_key = self._cache_key("all_alerts")
+        cached = self.cache.get_json(cache_key)
+        if cached is not None:
+            return cached
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -260,7 +295,7 @@ class GridIntelligence:
                 ORDER BY timestamp DESC
                 """
             )
-            return [
+            result = [
                 {
                     "user_id": row[0],
                     "session_id": row[1],
@@ -270,3 +305,27 @@ class GridIntelligence:
                 }
                 for row in cursor.fetchall()
             ]
+        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
+        return result
+
+    def _invalidate_session_cache(self, session_id: str) -> None:
+        keys = [
+            self._cache_key("session_history", session_id),
+            self._cache_key("session_alerts", session_id),
+        ]
+        for key in keys:
+            self.cache.delete(key)
+
+    def _invalidate_global_cache(self) -> None:
+        keys = [
+            self._cache_key("global_metrics"),
+            self._cache_key("recent_sessions"),
+            self._cache_key("all_alerts"),
+        ]
+        for key in keys:
+            self.cache.delete(key)
+
+    def _cache_key(self, name: str, identifier: Optional[str] = None) -> str:
+        if identifier:
+            return f"grid:{name}:{identifier}"
+        return f"grid:{name}"

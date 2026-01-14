@@ -1,16 +1,32 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
+import uuid
 from datetime import datetime
 from typing import Dict
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPBearer
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from cache import build_cache_from_env
 from core_engine import HarmonicGovernor
 from database import GridIntelligence
+from metrics import record_metrics
 from models import MultiModalAnalysis, TriageRequest, TriageResponse
+from rate_limiter import (
+    TokenBucketRateLimiter,
+    build_rate_limiter_store,
+    load_rate_limit_settings,
+)
+from structured_logging import configure_logging, trace_id_var
+from tasks import process_triage_background
+
+configure_logging()
+logger = logging.getLogger("namo_nexus")
 
 AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
 DB_PATH = os.getenv("DB_PATH", os.path.join("data", "namo_nexus_sovereign.db"))
@@ -26,9 +42,9 @@ security = HTTPBearer()
 class NamoNexusEnterprise:
     """Main triage engine for NamoNexus Enterprise v3.5.1."""
 
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str, cache_backend=None) -> None:
         self.governor = HarmonicGovernor()
-        self.grid = GridIntelligence(db_path)
+        self.grid = GridIntelligence(db_path, cache=cache_backend)
 
     async def process_triage(
         self, request: TriageRequest, background_tasks: BackgroundTasks
@@ -110,31 +126,23 @@ class NamoNexusEnterprise:
         multimodal: MultiModalAnalysis,
         human_required: bool,
     ) -> None:
-        self.grid.store_sovereign(
-            {
-                "user_id": request.user_id,
-                "session_id": session_id,
-                "message": request.message,
-                "response": response,
-                "risk_level": ethics["risk_level"],
-                "dharma_score": ethics["dharma_score"],
-                "multimodal": {
-                    "combined_risk": multimodal.combined_risk,
-                    "confidence": multimodal.confidence,
-                },
-            }
-        )
-
+        payload = {
+            "user_id": request.user_id,
+            "session_id": session_id,
+            "message": request.message,
+            "response": response,
+            "risk_level": ethics["risk_level"],
+            "dharma_score": ethics["dharma_score"],
+            "multimodal": {
+                "combined_risk": multimodal.combined_risk,
+                "confidence": multimodal.confidence,
+            },
+            "human_required": human_required,
+        }
+        process_triage_background.delay(payload)
         if human_required:
-            self.grid.create_crisis_alert(
-                {
-                    "user_id": request.user_id,
-                    "session_id": session_id,
-                    "risk_level": ethics["risk_level"],
-                }
-            )
-            print(
-                f"▲ CRISIS ALERT: User {request.user_id} requires immediate human intervention"
+            logger.warning(
+                "crisis_alert_enqueued user_id=%s session_id=%s", request.user_id, session_id
             )
 
     @staticmethod
@@ -142,7 +150,15 @@ class NamoNexusEnterprise:
         return f"session_{int(time.time())}"
 
 
-engine = NamoNexusEnterprise(DB_PATH)
+cache_backend = build_cache_from_env()
+engine = NamoNexusEnterprise(DB_PATH, cache_backend=cache_backend)
+rate_limit_capacity, rate_limit_refill = load_rate_limit_settings()
+rate_limit_store = build_rate_limiter_store()
+rate_limiter = TokenBucketRateLimiter(
+    capacity=rate_limit_capacity,
+    refill_rate=rate_limit_refill,
+    store=rate_limit_store,
+)
 
 
 @app.post("/triage", response_model=TriageResponse)
@@ -157,6 +173,50 @@ async def triage_endpoint(
     return await engine.process_triage(request, background_tasks)
 
 
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    if request.url.path in {"/health", "/ready", "/metrics"}:
+        return await call_next(request)
+    identifier = request.headers.get("X-API-Key")
+    if not identifier and request.client:
+        identifier = request.client.host
+    identifier = identifier or "anonymous"
+    result = rate_limiter.allow(identifier)
+    if not result.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": str(int(result.retry_after))},
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Trace-Id", str(uuid.uuid4()))
+    token = trace_id_var.set(trace_id)
+    start = time.time()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception:
+        logger.exception("request_failed method=%s path=%s", request.method, request.url.path)
+        raise
+    finally:
+        latency_ms = (time.time() - start) * 1000
+        record_metrics(request.method, request.url.path, status_code, latency_ms)
+        logger.info(
+            "request_completed method=%s path=%s status=%s latency_ms=%.2f",
+            request.method,
+            request.url.path,
+            status_code,
+            latency_ms,
+        )
+        trace_id_var.reset(token)
+
+
 @app.get("/health")
 async def health_check():
     return {
@@ -167,6 +227,29 @@ async def health_check():
         "fixes": ["connection_pool", "non_blocking_io"],
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.get("/ready")
+async def readiness_check():
+    db_ready = False
+    cache_ready = False
+    try:
+        with engine.grid.db_pool.get_connection() as conn:
+            conn.execute("SELECT 1")
+        db_ready = True
+    except Exception:
+        logger.exception("readiness_db_failed")
+    try:
+        cache_ready = engine.grid.cache.ping()
+    except Exception:
+        logger.exception("readiness_cache_failed")
+    status = "ready" if db_ready and cache_ready else "degraded"
+    return {"status": status, "db_ready": db_ready, "cache_ready": cache_ready}
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/harmonic-console")
