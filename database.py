@@ -15,7 +15,10 @@ from cache import CacheBackend, DEFAULT_CACHE_TTL, InMemoryCache
 try:
     from pysqlcipher3 import dbapi2 as sqlcipher
 except ImportError:  # pragma: no cover - optional dependency
-    sqlcipher = None
+    try:
+        import sqlcipher3 as sqlcipher
+    except ImportError:  # pragma: no cover - optional dependency
+        sqlcipher = None
 
 
 class DatabaseConnectionPool:
@@ -42,7 +45,8 @@ class DatabaseConnectionPool:
                 timeout=timeout,
             )
             cursor = conn.cursor()
-            cursor.execute("PRAGMA key = ?", (self.cipher_key,))
+            safe_key = self.cipher_key.replace("'", "''")
+            cursor.execute(f"PRAGMA key = '{safe_key}'")
             cursor.execute("PRAGMA cipher = 'aes-256-cfb'")
             cursor.close()
         else:
