@@ -1,0 +1,110 @@
+stages:
+  - validate
+  - test
+  - build
+  - deploy
+  - monitoring
+
+default:
+  image: python:3.11-slim
+  cache:
+    paths:
+      - .cache/pip
+  variables:
+    PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+
+lint:
+  stage: validate
+  allow_failure: true
+  script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt -r requirements-dev.txt
+    - flake8 app/ src/ tests/ main.py core_engine.py database.py rate_limiter.py tasks.py
+    - black --check app/ src/ tests/ main.py core_engine.py database.py rate_limiter.py tasks.py
+
+security:
+  stage: validate
+  script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt -r requirements-dev.txt
+    - mkdir -p reports
+    - bandit -r app/ src/ -f json -o reports/bandit.json || true
+    - pip install pip-audit
+    - pip-audit -r requirements.txt --ignore-vuln CVE-2025-66221 --ignore-vuln CVE-2025-50182 --ignore-vuln CVE-2025-50181
+    - pip install trufflehog
+    - trufflehog filesystem . --only-verified --fail || true
+  artifacts:
+    when: always
+    paths:
+      - reports/
+
+tests:
+  stage: test
+  script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt -r requirements-dev.txt
+    - pytest tests/ -v --junitxml=results.xml --cov=. --cov-report=xml
+  artifacts:
+    when: always
+    paths:
+      - results.xml
+      - coverage.xml
+
+build_image:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_REGISTRY != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $DOCKER_IMAGE != ""'
+    - when: never
+  script:
+    - |
+      if [ -n "$DOCKER_REGISTRY" ]; then
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin "$DOCKER_REGISTRY"
+        IMAGE="$DOCKER_IMAGE"
+      else
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+        IMAGE="${DOCKER_IMAGE:-$CI_REGISTRY_IMAGE}"
+      fi
+      docker build -t "$IMAGE:latest" .
+      docker push "$IMAGE:latest"
+
+deploy_k8s:
+  stage: deploy
+  image: bitnami/kubectl:1.29
+  needs: ["build_image"]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $KUBE_CONFIG_DATA != ""'
+      exists:
+        - k8s/deployment.yaml
+      when: manual
+    - when: never
+  script:
+    - mkdir -p /root/.kube
+    - echo "$KUBE_CONFIG_DATA" | base64 -d > /root/.kube/config
+    - kubectl apply -f k8s/deployment.yaml
+    - |
+      if [ -n "$KUBE_DEPLOYMENT_NAME" ]; then
+        kubectl rollout status deployment/"$KUBE_DEPLOYMENT_NAME" -n "${KUBE_NAMESPACE:-default}"
+      fi
+
+monitoring:
+  stage: monitoring
+  image: bitnami/kubectl:1.29
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $KUBE_CONFIG_DATA != ""'
+      exists:
+        - monitoring/alerts.yaml
+      when: manual
+    - when: never
+  script:
+    - mkdir -p /root/.kube
+    - echo "$KUBE_CONFIG_DATA" | base64 -d > /root/.kube/config
+    - kubectl apply -f monitoring/alerts.yaml
