@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Dict
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPBearer
@@ -21,7 +21,8 @@ from cache import build_cache_from_env
 from core_engine import HarmonicGovernor
 from database import GridIntelligence
 from metrics import record_metrics
-from models import MultiModalAnalysis, TriageRequest, TriageResponse
+from models import MultiModalAnalysis, TriageRequest, TriageResponse, VoiceFeaturesInput
+from voice_extractor import voice_extractor, VoiceAnalysisResult
 from rate_limiter import (
     TokenBucketRateLimiter,
     build_rate_limiter_store,
@@ -241,6 +242,100 @@ async def reflect_alias(
     credentials=Depends(security),
 ):
     return await triage_endpoint(request, background_tasks, credentials)
+
+
+# Audio triage configuration
+ALLOWED_AUDIO_TYPES = {
+    "audio/wav", "audio/wave", "audio/x-wav",
+    "audio/mpeg", "audio/mp3",
+    "audio/ogg", "audio/webm",
+    "audio/flac", "audio/x-flac",
+}
+MAX_AUDIO_SIZE = 50 * 1024 * 1024  # 50MB - supports 30+ min calls
+
+
+@app.post("/triage/audio", response_model=TriageResponse)
+async def triage_audio_endpoint(
+    background_tasks: BackgroundTasks,
+    audio: UploadFile = File(..., description="Audio file (WAV, MP3, OGG, WEBM, FLAC)"),
+    user_id: str = Form(..., description="User identifier"),
+    session_id: str | None = Form(None, description="Optional session ID"),
+    message: str | None = Form(None, description="Optional text message (will transcribe if empty)"),
+    credentials=Depends(security),
+):
+    """Triage endpoint that accepts audio file for voice analysis.
+    
+    This endpoint extracts voice features (pitch, energy, speech rate, etc.)
+    from the uploaded audio and optionally transcribes speech to text using Whisper.
+    
+    Supported formats: WAV, MP3, OGG, WEBM, FLAC
+    Max file size: 50MB (supports ~30+ minute voice recordings)
+    """
+    if credentials.credentials != AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Validate content type
+    if audio.content_type and audio.content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format: {audio.content_type}. Allowed: WAV, MP3, OGG, WEBM, FLAC"
+        )
+    
+    # Read and validate size
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > MAX_AUDIO_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Audio file too large ({len(audio_bytes) / 1024 / 1024:.1f}MB). Max: 50MB"
+        )
+    
+    if len(audio_bytes) < 1000:
+        raise HTTPException(status_code=400, detail="Audio file too small or empty")
+    
+    # Extract voice features (run in thread pool to not block)
+    try:
+        voice_result: VoiceAnalysisResult = await asyncio.to_thread(
+            voice_extractor.extract_from_bytes,
+            audio_bytes,
+            transcribe=True,
+        )
+        logger.info(
+            "voice_extraction_complete duration=%.1f transcription_len=%d",
+            voice_result.duration_seconds,
+            len(voice_result.transcription or ""),
+        )
+    except Exception as e:
+        logger.exception("voice_extraction_failed")
+        raise HTTPException(status_code=400, detail=f"Failed to process audio: {str(e)}")
+    
+    # Determine message: user-provided > transcription > fallback
+    final_message = message
+    if not final_message and voice_result.transcription:
+        final_message = voice_result.transcription
+    if not final_message:
+        final_message = "[Audio triage - no text available]"
+    
+    cleaned_message = sanitize_text(final_message)
+    
+    # Build triage request with extracted voice features
+    request = TriageRequest(
+        message=cleaned_message,
+        user_id=user_id,
+        session_id=session_id,
+        voice_features=VoiceFeaturesInput(**voice_result.to_voice_features_dict()),
+        facial_features=None,
+    )
+    
+    # Process triage
+    response = await engine.process_triage(request, background_tasks)
+    
+    # Add transcription to response if available
+    if voice_result.transcription:
+        response_dict = response.model_dump()
+        response_dict["transcription"] = voice_result.transcription
+        return TriageResponse(**response_dict)
+    
+    return response
 
 
 @app.middleware("http")
