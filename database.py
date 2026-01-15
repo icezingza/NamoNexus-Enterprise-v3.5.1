@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -11,26 +12,55 @@ from typing import Dict, List, Optional
 
 from cache import CacheBackend, DEFAULT_CACHE_TTL, InMemoryCache
 
+try:
+    from pysqlcipher3 import dbapi2 as sqlcipher
+except ImportError:  # pragma: no cover - optional dependency
+    sqlcipher = None
+
 
 class DatabaseConnectionPool:
     """Thread-safe SQLite connection pool with WAL mode enabled."""
 
-    def __init__(self, db_path: str, pool_size: int = 5) -> None:
+    def __init__(
+        self, db_path: str, pool_size: int = 5, cipher_key: Optional[str] = None
+    ) -> None:
         self.db_path = db_path
         self.pool_size = pool_size
+        self.cipher_key = cipher_key or os.getenv("DB_CIPHER_KEY")
         self._local = threading.local()
         self._semaphore = threading.BoundedSemaphore(pool_size)
         self._schema_lock = threading.Lock()
         self._init_schema()
+
+    def _connect(self, timeout: float = 10.0) -> sqlite3.Connection:
+        if self.cipher_key:
+            if sqlcipher is None:
+                raise RuntimeError("DB_CIPHER_KEY set but pysqlcipher3 is not installed")
+            conn = sqlcipher.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=timeout,
+            )
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA key = ?", (self.cipher_key,))
+            cursor.execute("PRAGMA cipher = 'aes-256-cfb'")
+            cursor.close()
+        else:
+            conn = sqlite3.connect(
+                self.db_path,
+                check_same_thread=False,
+                timeout=timeout,
+            )
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
 
     def _init_schema(self) -> None:
         """Create schema once at startup."""
         db_file = Path(self.db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
         with self._schema_lock:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
+            conn = self._connect()
 
             conn.execute(
                 """
@@ -78,13 +108,7 @@ class DatabaseConnectionPool:
 
     def _get_or_create_conn(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                timeout=10.0,
-            )
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA busy_timeout=5000")
+            self._local.conn = self._connect()
         return self._local.conn
 
     @contextmanager
@@ -110,8 +134,15 @@ class DatabaseConnectionPool:
 class GridIntelligence:
     """Sovereign storage layer using SQLite with a connection pool."""
 
-    def __init__(self, db_path: str, cache: Optional[CacheBackend] = None) -> None:
-        self.db_pool = DatabaseConnectionPool(db_path, pool_size=10)
+    def __init__(
+        self,
+        db_path: str,
+        cache: Optional[CacheBackend] = None,
+        cipher_key: Optional[str] = None,
+    ) -> None:
+        self.db_pool = DatabaseConnectionPool(
+            db_path, pool_size=10, cipher_key=cipher_key
+        )
         self.cache = cache or InMemoryCache()
 
     def store_sovereign(self, data: Dict) -> None:

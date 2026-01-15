@@ -24,6 +24,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy.orm import sessionmaker
 
 from cache import build_cache_from_env
 from core_engine import HarmonicGovernor
@@ -37,7 +38,10 @@ from rate_limiter import (
 )
 from sanitization import sanitize_text
 from structured_logging import configure_logging, trace_id_var
+from src.audit_log import Base as AuditBase
+from src.audit_middleware import AuditMiddleware
 from src.auth_utils import verify_token
+from src.database_secure import get_secure_engine
 from src.schemas_day2 import InteractRequest, ReflectRequest, TriageRequest
 from src.security_patch import add_https_redirect
 
@@ -74,6 +78,32 @@ if cors_origins:
         allow_headers=["*"],
     )
 add_https_redirect(app)
+
+
+def _resolve_audit_db_path() -> str:
+    db_url = os.getenv("DATABASE_URL", "")
+    if db_url.startswith("sqlite:///"):
+        return db_url.replace("sqlite:///", "", 1)
+    if db_url.startswith("sqlite://"):
+        return db_url.replace("sqlite://", "", 1)
+    return DB_PATH
+
+
+cipher_key = os.getenv("DB_CIPHER_KEY")
+if not cipher_key:
+    token = os.getenv("NAMO_NEXUS_TOKEN", "")
+    cipher_key = token[:32] if token else ""
+if not cipher_key:
+    raise RuntimeError("DB_CIPHER_KEY or NAMO_NEXUS_TOKEN is required for SQLCipher")
+os.environ.setdefault("DB_CIPHER_KEY", cipher_key)
+
+audit_engine = get_secure_engine(
+    db_path=_resolve_audit_db_path(),
+    cipher_key=cipher_key,
+)
+AuditSessionLocal = sessionmaker(bind=audit_engine, expire_on_commit=False)
+AuditBase.metadata.create_all(bind=audit_engine)
+app.add_middleware(AuditMiddleware, session_factory=AuditSessionLocal)
 
 
 class NamoNexusEnterprise:
