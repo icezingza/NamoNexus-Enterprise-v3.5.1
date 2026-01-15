@@ -267,9 +267,16 @@ class GridIntelligence:
         with self.db_pool.get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT DISTINCT session_id, user_id, timestamp
+                SELECT conversations.session_id, conversations.user_id, latest.last_active
                 FROM conversations
-                ORDER BY timestamp DESC
+                JOIN (
+                    SELECT session_id, MAX(timestamp) AS last_active
+                    FROM conversations
+                    GROUP BY session_id
+                ) AS latest
+                ON conversations.session_id = latest.session_id
+                AND conversations.timestamp = latest.last_active
+                ORDER BY latest.last_active DESC
                 LIMIT 20
                 """
             )

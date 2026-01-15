@@ -1,4 +1,9 @@
+import os
+
 from locust import HttpUser, task, between
+
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
 class NamoLoadTest(HttpUser):
@@ -7,9 +12,10 @@ class NamoLoadTest(HttpUser):
     @task
     def interact(self):
         self.client.post(
-            "/interact",
+            "/triage",
             json={
                 "message": "I feel anxious today",
                 "user_id": "load_test_001",
             },
+            headers=AUTH_HEADERS,
         )

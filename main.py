@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import time
 import uuid
@@ -61,7 +62,7 @@ class NamoNexusEnterprise:
         multimodal = result["multimodal"]
         ethics = result["ethics"]
         response_text = self._generate_response(request.message, ethics, multimodal)
-        human_required = ethics["requires_human"] and multimodal.combined_risk > 0.7
+        human_required = ethics["requires_human"] or multimodal.combined_risk > 0.7
 
         background_tasks.add_task(
             self._background_process,
@@ -139,7 +140,15 @@ class NamoNexusEnterprise:
             },
             "human_required": human_required,
         }
-        process_triage_background.delay(payload)
+        broker_url = os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
+        try:
+            if broker_url:
+                process_triage_background.delay(payload)
+            else:
+                process_triage_background(payload)
+        except Exception:
+            logger.exception("triage_background_enqueue_failed")
+            process_triage_background(payload)
         if human_required:
             logger.warning(
                 "crisis_alert_enqueued user_id=%s session_id=%s",
@@ -149,7 +158,7 @@ class NamoNexusEnterprise:
 
     @staticmethod
     def _generate_session_id() -> str:
-        return f"session_{int(time.time())}"
+        return f"session_{uuid.uuid4().hex[:12]}"
 
 
 cache_backend = build_cache_from_env()
@@ -175,9 +184,27 @@ async def triage_endpoint(
     return await engine.process_triage(request, background_tasks)
 
 
+@app.post("/interact", response_model=TriageResponse)
+async def interact_alias(
+    request: TriageRequest,
+    background_tasks: BackgroundTasks,
+    credentials=Depends(security),
+):
+    return await triage_endpoint(request, background_tasks, credentials)
+
+
+@app.post("/reflect", response_model=TriageResponse)
+async def reflect_alias(
+    request: TriageRequest,
+    background_tasks: BackgroundTasks,
+    credentials=Depends(security),
+):
+    return await triage_endpoint(request, background_tasks, credentials)
+
+
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    if request.url.path in {"/health", "/ready", "/metrics"}:
+    if request.url.path in {"/health", "/healthz", "/ready", "/readyz", "/metrics"}:
         return await call_next(request)
     identifier = request.headers.get("X-API-Key")
     if not identifier and request.client:
@@ -188,7 +215,7 @@ async def rate_limit_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded"},
-            headers={"Retry-After": str(int(result.retry_after))},
+            headers={"Retry-After": str(max(1, math.ceil(result.retry_after)))},
         )
     return await call_next(request)
 
@@ -233,6 +260,11 @@ async def health_check():
     }
 
 
+@app.get("/healthz")
+async def healthz():
+    return {"status": "alive"}
+
+
 @app.get("/ready")
 async def readiness_check():
     db_ready = False
@@ -249,6 +281,11 @@ async def readiness_check():
         logger.exception("readiness_cache_failed")
     status = "ready" if db_ready and cache_ready else "degraded"
     return {"status": status, "db_ready": db_ready, "cache_ready": cache_ready}
+
+
+@app.get("/readyz")
+async def readyz():
+    return await readiness_check()
 
 
 @app.get("/metrics")

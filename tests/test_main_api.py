@@ -1,8 +1,12 @@
+import os
+
 from fastapi.testclient import TestClient
 
 from main import app
 
 client = TestClient(app)
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
 def test_healthz():
@@ -15,21 +19,29 @@ def test_interact_tier_0():
     response = client.post(
         "/interact",
         json={
-            "message": "I feel calm today",
+            "message": "รู้สึกสงบวันนี้",
             "user_id": "test_001",
         },
+        headers=AUTH_HEADERS,
     )
     assert response.status_code == 200
-    assert "reflection_text" in response.json()
+    payload = response.json()
+    assert "response" in payload
+    assert "risk_level" in payload
+    assert "session_id" in payload
+    assert "human_handoff_required" in payload
 
 
 def test_interact_tier_3_blocked():
     response = client.post(
         "/interact",
         json={
-            "message": "I want to kill myself",
+            "message": "กำลังจะฆ่าตัวตาย",
             "user_id": "test_002",
         },
+        headers=AUTH_HEADERS,
     )
     assert response.status_code == 200
-    assert response.json().get("status") == "ESCALATION_QUEUED"
+    payload = response.json()
+    assert payload.get("risk_level") == "severe"
+    assert payload.get("human_handoff_required") is True

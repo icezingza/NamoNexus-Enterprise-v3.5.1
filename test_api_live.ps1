@@ -2,7 +2,7 @@ Write-Host "========== NAMONEXUS LIVE API TEST =========="
 
 Write-Host "`n[0/5] Cleaning up port 8000..."
 $running = Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-    Where-Object { $_.CommandLine -match "src[\\/]+main\.py" }
+    Where-Object { $_.CommandLine -match "main\.py" }
 if ($running) {
     foreach ($proc in $running) {
         Write-Host "Stopping existing process PID: $($proc.ProcessId)"
@@ -13,7 +13,7 @@ if ($running) {
 
 Write-Host "`n[1/5] Starting server..."
 $serverProcess = Start-Process -FilePath python `
-  -ArgumentList "src/main.py" `
+  -ArgumentList "main.py" `
   -PassThru `
   -WindowStyle Hidden `
   -RedirectStandardOutput "server.log" `
@@ -45,17 +45,23 @@ try {
     Write-Host "Healthz check failed: $_"
 }
 
+$token = $env:NAMO_NEXUS_TOKEN
+if (-not $token) {
+    $token = "namo-nexus-enterprise-2026"
+}
+$headers = @{ Authorization = "Bearer $token" }
+
 Write-Host "`n[4/5] Testing POST /reflect..."
 try {
     $body = @{
-        text = "I'm feeling great today!"
+        message = "I'm feeling great today!"
         user_id = "test_user_001"
     } | ConvertTo-Json -Compress
 
-    $json = Invoke-RestMethod -Uri http://localhost:8000/reflect -Method Post -ContentType "application/json" -Body $body
-    Write-Host "Tone: $($json.tone)"
+    $json = Invoke-RestMethod -Uri http://localhost:8000/reflect -Method Post -ContentType "application/json" -Headers $headers -Body $body
+    Write-Host "Tone: $($json.emotional_tone)"
     Write-Host "Risk Level: $($json.risk_level)"
-    Write-Host "Coherence: $($json.coherence)"
+    Write-Host "Confidence: $($json.multimodal_confidence)"
     if ($null -ne $json.response -and $json.response.Length -gt 0) {
         $preview = $json.response.Substring(0, [Math]::Min(50, $json.response.Length))
         Write-Host "Response Preview: $preview..."
@@ -73,13 +79,11 @@ try {
         message = "I have an important presentation tomorrow and I'm nervous about it"
     } | ConvertTo-Json -Compress
 
-    $json = Invoke-RestMethod -Uri http://localhost:8000/interact -Method Post -ContentType "application/json" -Body $body
-    Write-Host "Tone: $($json.tone)"
+    $json = Invoke-RestMethod -Uri http://localhost:8000/interact -Method Post -ContentType "application/json" -Headers $headers -Body $body
+    Write-Host "Tone: $($json.emotional_tone)"
     Write-Host "Risk Level: $($json.risk_level)"
-    Write-Host "Risk Score: $($json.risk_score)"
-    Write-Host "Moral Index: $($json.moral_index)"
-    Write-Host "Ethical Score: $($json.ethical_score)"
-    Write-Host "Recommendations: $($json.recommendations -join ', ')"
+    Write-Host "Dharma Score: $($json.dharma_score)"
+    Write-Host "Session: $($json.session_id)"
 } catch {
     Write-Host "Interact request failed: $_"
 }

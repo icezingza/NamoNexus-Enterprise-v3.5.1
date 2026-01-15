@@ -1,26 +1,35 @@
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
 
 
 class ConversationalAgent:
-    """Client wrapper for the /interact API with emotion metadata."""
+    """Client wrapper for the /triage API with response metadata."""
 
-    def __init__(self, api_url: str = "http://localhost:8000", timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        api_url: str = "http://localhost:8000",
+        timeout: float = 10.0,
+        token: Optional[str] = None,
+    ) -> None:
         self.api_url = api_url.rstrip("/")
         self.timeout = timeout
         self.chat_history: List[Dict[str, Any]] = []
         self._session = requests.Session()
+        resolved_token = token or os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+        self._headers = {"Authorization": f"Bearer {resolved_token}"}
 
     def chat(self, user_id: str, message: str) -> Dict[str, Any]:
         """Send a message and return response plus emotion metadata."""
         payload = {"user_id": user_id, "message": message}
         try:
             response = self._session.post(
-                f"{self.api_url}/interact",
+                f"{self.api_url}/triage",
                 json=payload,
                 timeout=self.timeout,
+                headers=self._headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -29,22 +38,24 @@ class ConversationalAgent:
         except json.JSONDecodeError:
             return {"error": "api_response_not_json"}
 
+        risk_level = data.get("risk_level")
+        risk_score = self._risk_level_score(risk_level)
         emotion_data = {
-            "tone": data.get("tone"),
-            "risk_level": data.get("risk_level"),
-            "risk_score": data.get("risk_score"),
-            "coherence": data.get("coherence"),
-            "moral_index": data.get("moral_index"),
-            "ethical_score": data.get("ethical_score"),
-            "decision_consistency": data.get("decision_consistency"),
+            "emotional_tone": data.get("emotional_tone"),
+            "risk_level": risk_level,
+            "risk_score": risk_score,
+            "dharma_score": data.get("dharma_score"),
+            "multimodal_confidence": data.get("multimodal_confidence"),
+            "human_handoff_required": data.get("human_handoff_required"),
+            "session_id": data.get("session_id"),
         }
 
         entry = {
             "user_id": user_id,
             "message": message,
-            "response": data.get("response") or data.get("reflection_text"),
+            "response": data.get("response"),
             "emotion_data": emotion_data,
-            "recommendations": data.get("recommendations", []),
+            "recommendations": [],
         }
         self.chat_history.append(entry)
 
@@ -76,8 +87,8 @@ class ConversationalAgent:
             trend = "stable"
 
         return {
-            "initial_tone": first.get("tone"),
-            "current_tone": last.get("tone"),
+            "initial_tone": first.get("emotional_tone"),
+            "current_tone": last.get("emotional_tone"),
             "initial_risk_score": first_risk,
             "current_risk_score": last_risk,
             "trend": trend,
@@ -100,6 +111,13 @@ class ConversationalAgent:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _risk_level_score(risk_level: Optional[str]) -> Optional[float]:
+        if not risk_level:
+            return None
+        mapping = {"low": 0.2, "moderate": 0.6, "severe": 1.0}
+        return mapping.get(risk_level)
 
 
 if __name__ == "__main__":

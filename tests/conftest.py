@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sys
 import typing
 from unittest.mock import AsyncMock, Mock
@@ -8,6 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
+
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
 
 # Compatibility patch for Pydantic with Python 3.13+
 # Pydantic versions < 2.10 (approx) call typing._eval_type with 'prefer_fwd_module'
@@ -51,8 +54,14 @@ def sample_reflect_request():
     """Sample reflect request."""
     return {
         "user_id": "test_user_456",
-        "text": "I feel calm and peaceful today",
+        "message": "I feel calm and peaceful today",
     }
+
+
+@pytest.fixture
+def auth_headers():
+    """Authorization headers for secured endpoints."""
+    return {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
 @pytest.fixture

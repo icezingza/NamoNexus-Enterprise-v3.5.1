@@ -45,7 +45,7 @@ production use and keeps advanced research modules under the `research/` directo
 - Personalized responses with alignment insights
 - SQLAlchemy persistence and Alembic migrations
 - Metrics, health, and readiness endpoints
-- Rate limiting on `/interact` and `/reflect`
+- Rate limiting on `/triage` (and aliases `/interact`, `/reflect`)
 
 ## v3.5.1 scope (production)
 Included:
@@ -79,10 +79,12 @@ Requirements: Python 3.11+
    ```
 4. Start the API:
    ```bash
-   python src/main.py
+   python main.py
    ```
 
 The API listens on `http://localhost:8000` by default.
+
+For a lightweight dev stack without auth/Celery, use `python src/main.py`.
 
 Optional frontend: open `frontend/index.html` for the Harmonic Alignment Console.
 
@@ -100,40 +102,44 @@ Advanced stack settings live under `NAMO_*` variables (see `.env.example`).
 
 Set `AUTO_CREATE_DB=true` only for local dev convenience; production should use Alembic migrations.
 
-## API endpoints
+## API endpoints (primary: `main.py`)
 - `GET /health` - Health and version
-- `GET /healthz` - Liveness probe
-- `GET /readyz` - Readiness probe with latency metrics
-- `GET /metrics` - Prometheus metrics or JSON summary
-- `GET /api/status` - Service status
-- `POST /interact` - Main interaction endpoint (rate limited)
-- `POST /reflect` - Alias for `/interact` (rate limited)
+- `GET /healthz` - Liveness probe (alias)
+- `GET /ready` - Readiness probe
+- `GET /readyz` - Readiness alias
+- `GET /metrics` - Prometheus metrics
+- `POST /triage` - Primary triage endpoint (requires `Authorization: Bearer <token>`)
+- `POST /interact` - Alias for `/triage` (requires auth)
+- `POST /reflect` - Alias for `/triage` (requires auth)
+- `GET /harmonic-console` - Global metrics (requires auth)
+- `GET /harmonic-console/{session_id}` - Session view (requires auth)
+
+Lightweight dev stack (`src/main.py`) exposes `/interact`, `/reflect`, `/healthz`, `/readyz`, and `/api/status` without auth.
 
 Example request:
 ```bash
-curl -X POST http://localhost:8000/interact \
+curl -X POST http://localhost:8000/triage \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer namo-nexus-enterprise-2026" \
   -d '{"user_id":"user_123","message":"I feel anxious about tomorrow"}'
 ```
 
 Example response:
 ```json
 {
-  "user_id": "user_123",
   "response": "...",
-  "reflection_text": "...",
-  "tone": "anxiety",
-  "risk_level": "low",
-  "risk_score": 0.25,
-  "coherence": 0.85,
-  "moral_index": 0.9,
-  "ethical_score": 0.88,
-  "decision_consistency": 0.82,
-  "recommendations": ["..."]
+  "risk_level": "moderate",
+  "dharma_score": 0.72,
+  "emotional_tone": "supportive",
+  "multimodal_confidence": 0.75,
+  "latency_ms": 12.3,
+  "session_id": "session_a1b2c3d4e5f6",
+  "human_handoff_required": false,
+  "empathy_prompts": null
 }
 ```
 
-The request body accepts `message` or `text`.
+The request body accepts `message` and `user_id` with optional `session_id`, `voice_features`, and `facial_features`.
 
 ## Database and migrations
 ```bash

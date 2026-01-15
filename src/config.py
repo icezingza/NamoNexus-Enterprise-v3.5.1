@@ -19,6 +19,14 @@ class Config:
         "hurt myself",
         "can't go on",
         "no reason to live",
+        "ฆ่าตัวตาย",
+        "ทำร้ายตัวเอง",
+        "อยากตาย",
+        "หมดหวัง",
+        "ไม่อยากมีชีวิต",
+        "จบชีวิต",
+        "กระโดดตึก",
+        "กินยาตาย",
     ]
     MAX_MEMORY_ITEMS = int(os.getenv("MAX_MEMORY_ITEMS", "1000"))
     MEMORY_RETENTION_DAYS = int(os.getenv("MEMORY_RETENTION_DAYS", "365"))

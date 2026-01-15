@@ -1,5 +1,10 @@
-from locust import HttpUser, task, between
+import os
 import random
+
+from locust import HttpUser, task, between
+
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 
 class NamoNexusUser(HttpUser):
@@ -16,33 +21,36 @@ class NamoNexusUser(HttpUser):
     def reflect_positive(self):
         """Simulate positive reflection."""
         self.client.post(
-            "/reflect",
+            "/triage",
             json={
-                "text": "I feel happy and grateful",
+                "message": "I feel happy and grateful",
                 "user_id": f"user_{random.randint(1, 1000)}",
             },
+            headers=AUTH_HEADERS,
         )
 
     @task(2)
     def reflect_negative(self):
         """Simulate negative reflection."""
         self.client.post(
-            "/reflect",
+            "/triage",
             json={
-                "text": "I am stressed about work",
+                "message": "I am stressed about work",
                 "user_id": f"user_{random.randint(1, 1000)}",
             },
+            headers=AUTH_HEADERS,
         )
 
     @task(1)
     def interact(self):
         """Simulate interaction."""
         self.client.post(
-            "/interact",
+            "/triage",
             json={
                 "message": "Help me manage my anxiety",
                 "user_id": f"user_{random.randint(1, 1000)}",
             },
+            headers=AUTH_HEADERS,
         )
 
 
@@ -54,4 +62,4 @@ class AdminUser(HttpUser):
     @task
     def check_status(self):
         """Check API status."""
-        self.client.get("/api/status")
+        self.client.get("/health")
