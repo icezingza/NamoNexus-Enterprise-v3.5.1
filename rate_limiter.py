@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import redis
 
@@ -57,7 +56,7 @@ class RedisTokenBucketStore(TokenBucketStore):
             local elapsed = math.max(0, now - timestamp)
             local filled = math.min(capacity, tokens + (elapsed * refill_rate))
             local allowed = filled >= requested
-            local new_tokens = filled - requested
+            local new_tokens = allowed and (filled - requested) or filled
             redis.call('HMSET', key, 'tokens', new_tokens, 'timestamp', now)
             local ttl = 60
             if refill_rate > 0 then
@@ -75,7 +74,9 @@ class RedisTokenBucketStore(TokenBucketStore):
         now = time.time()
         allowed, tokens = self._script(keys=[key], args=[capacity, refill_rate, now, 1])
         allowed = bool(int(allowed))
-        retry_after = (1.0 - float(tokens)) / refill_rate if not allowed and refill_rate else 0.0
+        retry_after = (
+            (1.0 - float(tokens)) / refill_rate if not allowed and refill_rate else 0.0
+        )
         return RateLimitResult(allowed, retry_after)
 
 
@@ -88,7 +89,9 @@ def build_rate_limiter_store() -> TokenBucketStore:
 
 
 class TokenBucketRateLimiter:
-    def __init__(self, capacity: int, refill_rate: float, store: TokenBucketStore) -> None:
+    def __init__(
+        self, capacity: int, refill_rate: float, store: TokenBucketStore
+    ) -> None:
         self.capacity = capacity
         self.refill_rate = refill_rate
         self.store = store

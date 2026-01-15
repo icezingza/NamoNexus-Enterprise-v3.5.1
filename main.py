@@ -142,7 +142,9 @@ class NamoNexusEnterprise:
         process_triage_background.delay(payload)
         if human_required:
             logger.warning(
-                "crisis_alert_enqueued user_id=%s session_id=%s", request.user_id, session_id
+                "crisis_alert_enqueued user_id=%s session_id=%s",
+                request.user_id,
+                session_id,
             )
 
     @staticmethod
@@ -202,7 +204,9 @@ async def observability_middleware(request: Request, call_next):
         status_code = response.status_code
         return response
     except Exception:
-        logger.exception("request_failed method=%s path=%s", request.method, request.url.path)
+        logger.exception(
+            "request_failed method=%s path=%s", request.method, request.url.path
+        )
         raise
     finally:
         latency_ms = (time.time() - start) * 1000
@@ -280,5 +284,5 @@ async def get_harmonic_console_session(session_id: str, credentials=Depends(secu
         "session_id": session_id,
         "conversation_history": history,
         "crisis_alerts": alerts,
-        "empathy_guidance": alerts[0]["prompts"] if alerts else [],
+        "empathy_guidance": alerts[0].get("prompts", []) if alerts else [],
     }
