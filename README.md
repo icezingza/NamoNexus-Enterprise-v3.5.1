@@ -98,6 +98,12 @@ Core settings:
 - `AUTO_CREATE_DB`
 - `MAX_MEMORY_ITEMS`, `MEMORY_RETENTION_DAYS`
 
+Enterprise API settings (main.py):
+- `NAMO_NEXUS_TOKEN` (required; generated at startup if missing)
+- `DB_PATH`
+- `CORS_ALLOW_ORIGINS`
+- `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_BURST`
+
 Advanced stack settings live under `NAMO_*` variables (see `.env.example`).
 
 Set `AUTO_CREATE_DB=true` only for local dev convenience; production should use Alembic migrations.
@@ -120,7 +126,7 @@ Example request:
 ```bash
 curl -X POST http://localhost:8000/triage \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer namo-nexus-enterprise-2026" \
+  -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
   -d '{"user_id":"user_123","message":"I feel anxious about tomorrow"}'
 ```
 

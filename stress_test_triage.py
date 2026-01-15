@@ -1,3 +1,4 @@
+import os
 import requests
 
 import time
@@ -5,7 +6,9 @@ from datetime import datetime
 
 # Configuration
 BASE_URL = "http://localhost:8000"
-TOKEN = "namo-nexus-enterprise-2026"
+TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "")
+if not TOKEN:
+    raise RuntimeError("NAMO_NEXUS_TOKEN is required for stress tests.")
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 
 # 100 Test Prompts (Categorized)

@@ -21,7 +21,9 @@ DB_PATH = Path(os.getenv("DB_PATH") or os.getenv("NAMO_NEXUS_DB_PATH") or str(DE
 if not DB_PATH.is_absolute():
     DB_PATH = (ROOT_DIR / DB_PATH).resolve()
 
-AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "")
+if not AUTH_TOKEN:
+    raise RuntimeError("NAMO_NEXUS_TOKEN is required for live API tests.")
 API_KEY = os.getenv("NAMO_NEXUS_API_KEY", "local-smoke")
 RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", "30"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "3"))

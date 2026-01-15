@@ -18,7 +18,9 @@ class ConversationalAgent:
         self.timeout = timeout
         self.chat_history: List[Dict[str, Any]] = []
         self._session = requests.Session()
-        resolved_token = token or os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+        resolved_token = token or os.getenv("NAMO_NEXUS_TOKEN")
+        if not resolved_token:
+            raise ValueError("NAMO_NEXUS_TOKEN is required for authenticated requests.")
         self._headers = {"Authorization": f"Bearer {resolved_token}"}
 
     def chat(self, user_id: str, message: str) -> Dict[str, Any]:

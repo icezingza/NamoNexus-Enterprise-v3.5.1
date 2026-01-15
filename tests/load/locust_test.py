@@ -2,7 +2,9 @@ import os
 
 from locust import HttpUser, task, between
 
-AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "")
+if not AUTH_TOKEN:
+    raise RuntimeError("NAMO_NEXUS_TOKEN is required for load tests.")
 AUTH_HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
 
 

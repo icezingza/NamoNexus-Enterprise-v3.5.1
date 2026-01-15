@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import os
+import secrets
 import time
 import uuid
 from datetime import datetime
 from typing import Dict
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPBearer
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -23,13 +26,30 @@ from rate_limiter import (
     build_rate_limiter_store,
     load_rate_limit_settings,
 )
+from sanitization import sanitize_text
 from structured_logging import configure_logging, trace_id_var
 from tasks import process_triage_background
 
 configure_logging()
 logger = logging.getLogger("namo_nexus")
 
-AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+
+def load_auth_token() -> str:
+    token = os.getenv("NAMO_NEXUS_TOKEN")
+    if token:
+        return token
+    generated = secrets.token_urlsafe(32)
+    logger.warning("NAMO_NEXUS_TOKEN not set; generated ephemeral token for this process.")
+    logger.warning("Generated auth token: %s", generated)
+    return generated
+
+
+def load_cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+AUTH_TOKEN = load_auth_token()
 DB_PATH = os.getenv("DB_PATH", os.path.join("data", "namo_nexus_sovereign.db"))
 
 app = FastAPI(
@@ -37,6 +57,15 @@ app = FastAPI(
     version="3.5.1",
     description="Mental Health Infrastructure AI - Production Hardened",
 )
+cors_origins = load_cors_origins()
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials="*" not in cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 security = HTTPBearer()
 
 
@@ -181,7 +210,9 @@ async def triage_endpoint(
     if credentials.credentials != AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    return await engine.process_triage(request, background_tasks)
+    cleaned_message = sanitize_text(request.message)
+    sanitized_request = request.model_copy(update={"message": cleaned_message})
+    return await engine.process_triage(sanitized_request, background_tasks)
 
 
 @app.post("/interact", response_model=TriageResponse)
@@ -270,8 +301,7 @@ async def readiness_check():
     db_ready = False
     cache_ready = False
     try:
-        with engine.grid.db_pool.get_connection() as conn:
-            conn.execute("SELECT 1")
+        await asyncio.to_thread(engine.grid.db_pool.ping)
         db_ready = True
     except Exception:
         logger.exception("readiness_db_failed")
@@ -298,9 +328,9 @@ async def get_harmonic_console_global(credentials=Depends(security)):
     if credentials.credentials != AUTH_TOKEN:
         raise HTTPException(status_code=401)
 
-    metrics = engine.grid.get_global_metrics()
-    sessions = engine.grid.get_recent_sessions()
-    alerts = engine.grid.get_all_alerts()
+    metrics = await engine.grid.get_global_metrics_async()
+    sessions = await engine.grid.get_recent_sessions_async()
+    alerts = await engine.grid.get_all_alerts_async()
 
     return {
         "metrics": metrics,
@@ -314,8 +344,8 @@ async def get_harmonic_console_session(session_id: str, credentials=Depends(secu
     if credentials.credentials != AUTH_TOKEN:
         raise HTTPException(status_code=401)
 
-    history = engine.grid.get_session_history(session_id)
-    alerts = engine.grid.get_alerts(session_id)
+    history = await engine.grid.get_session_history_async(session_id)
+    alerts = await engine.grid.get_alerts_async(session_id)
 
     return {
         "session_id": session_id,

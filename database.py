@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 import threading
@@ -101,6 +102,10 @@ class DatabaseConnectionPool:
         finally:
             self._semaphore.release()
 
+    def ping(self) -> None:
+        with self.get_connection() as conn:
+            conn.execute("SELECT 1")
+
 
 class GridIntelligence:
     """Sovereign storage layer using SQLite with a connection pool."""
@@ -134,6 +139,9 @@ class GridIntelligence:
         self._invalidate_session_cache(data["session_id"])
         self._invalidate_global_cache()
 
+    async def store_sovereign_async(self, data: Dict) -> None:
+        await asyncio.to_thread(self.store_sovereign, data)
+
     def create_crisis_alert(self, data: Dict) -> List[str]:
         empathy_prompts = self._generate_empathy_prompts(data["risk_level"])
         with self.db_pool.get_connection() as conn:
@@ -155,6 +163,9 @@ class GridIntelligence:
         self._invalidate_session_cache(data["session_id"])
         self._invalidate_global_cache()
         return empathy_prompts
+
+    async def create_crisis_alert_async(self, data: Dict) -> List[str]:
+        return await asyncio.to_thread(self.create_crisis_alert, data)
 
     def _generate_empathy_prompts(self, risk_level: str) -> List[str]:
         prompts = {
@@ -206,6 +217,9 @@ class GridIntelligence:
         self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
         return result
 
+    async def get_session_history_async(self, session_id: str) -> List[Dict]:
+        return await asyncio.to_thread(self.get_session_history, session_id)
+
     def get_alerts(self, session_id: str) -> List[Dict]:
         cache_key = self._cache_key("session_alerts", session_id)
         cached = self.cache.get_json(cache_key)
@@ -236,6 +250,9 @@ class GridIntelligence:
         self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
         return result
 
+    async def get_alerts_async(self, session_id: str) -> List[Dict]:
+        return await asyncio.to_thread(self.get_alerts, session_id)
+
     def get_global_metrics(self) -> List[Dict]:
         """Fetch historical risk levels and dharma scores for graph visualization."""
         cache_key = self._cache_key("global_metrics")
@@ -257,6 +274,9 @@ class GridIntelligence:
             ]
         self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
         return result
+
+    async def get_global_metrics_async(self) -> List[Dict]:
+        return await asyncio.to_thread(self.get_global_metrics)
 
     def get_recent_sessions(self) -> List[Dict]:
         """Fetch unique recent sessions for the monitor."""
@@ -287,6 +307,9 @@ class GridIntelligence:
         self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
         return result
 
+    async def get_recent_sessions_async(self) -> List[Dict]:
+        return await asyncio.to_thread(self.get_recent_sessions)
+
     def get_all_alerts(self) -> List[Dict]:
         """Fetch all active crisis alerts."""
         cache_key = self._cache_key("all_alerts")
@@ -314,6 +337,9 @@ class GridIntelligence:
             ]
         self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
         return result
+
+    async def get_all_alerts_async(self) -> List[Dict]:
+        return await asyncio.to_thread(self.get_all_alerts)
 
     def _invalidate_session_cache(self, session_id: str) -> None:
         keys = [

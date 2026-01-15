@@ -101,7 +101,7 @@ class TokenBucketRateLimiter:
 
 
 def load_rate_limit_settings() -> tuple[int, float]:
-    per_minute = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
-    burst = int(os.getenv("RATE_LIMIT_BURST", "20"))
+    per_minute = int(os.getenv("RATE_LIMIT_PER_MINUTE", "1000"))
+    burst = int(os.getenv("RATE_LIMIT_BURST", "200"))
     refill_rate = per_minute / 60.0 if per_minute > 0 else 0.0
     return burst, refill_rate

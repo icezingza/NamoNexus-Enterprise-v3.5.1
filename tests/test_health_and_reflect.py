@@ -3,12 +3,13 @@ import os
 
 from fastapi.testclient import TestClient
 
+os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
+
 from main import app
 
 
 client = TestClient(app)
-AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
-AUTH_HEADERS = {"Authorization": f"Bearer {AUTH_TOKEN}"}
+AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
 
 
 def test_health_endpoint_returns_ok():

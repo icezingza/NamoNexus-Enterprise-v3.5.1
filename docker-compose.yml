@@ -15,7 +15,6 @@ services:
       - CELERY_BACKEND_URL=redis://redis:6379/0
     depends_on:
       - redis
-      - db
     deploy:
       resources:
         limits:
@@ -35,7 +34,6 @@ services:
       - CELERY_BACKEND_URL=redis://redis:6379/0
     depends_on:
       - redis
-      - db
   redis:
     image: redis:7.2-alpine
     container_name: namo_enterprise_redis
@@ -46,6 +44,8 @@ services:
     image: postgres:15-alpine
     container_name: namo_enterprise_db
     restart: always
+    profiles:
+      - postgres
     environment:
       - POSTGRES_DB=namo_nexus
       - POSTGRES_USER=namo_nexus

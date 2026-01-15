@@ -8,9 +8,11 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi.testclient import TestClient
 
+os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
+
 from main import app
 
-AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "namo-nexus-enterprise-2026")
+AUTH_TOKEN = os.environ["NAMO_NEXUS_TOKEN"]
 
 # Compatibility patch for Pydantic with Python 3.13+
 # Pydantic versions < 2.10 (approx) call typing._eval_type with 'prefer_fwd_module'

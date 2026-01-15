@@ -72,7 +72,6 @@ class MultiModalTriageEngine:
         self.dhammic_lake = DhammicDataLake()
 
     async def analyze_text(self, text: str) -> float:
-        await asyncio.sleep(0.02)
         depression_keywords = ["เศร้า", "ทุกข์", "หมดหวัง", "เหนื่อย", "ไม่มีแรง"]
         severity_keywords = ["มาก", "ทุกวัน", "ตลอดเวลา", "ไม่หยุด"]
 
@@ -85,7 +84,6 @@ class MultiModalTriageEngine:
         return min(base_score * severity_multiplier, 1.0)
 
     async def analyze_voice(self, voice_features: Optional[Dict]) -> float:
-        await asyncio.sleep(0.02)
         if not voice_features:
             return 0.5
 
@@ -96,7 +94,6 @@ class MultiModalTriageEngine:
         return (1 - energy) * 0.4 + (1 - speech_rate) * 0.3 + (1 - pitch_variance) * 0.3
 
     async def analyze_facial(self, facial_features: Optional[Dict]) -> float:
-        await asyncio.sleep(0.02)
         if not facial_features:
             return 0.5
 

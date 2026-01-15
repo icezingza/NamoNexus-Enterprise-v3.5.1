@@ -47,7 +47,8 @@ try {
 
 $token = $env:NAMO_NEXUS_TOKEN
 if (-not $token) {
-    $token = "namo-nexus-enterprise-2026"
+    Write-Host "NAMO_NEXUS_TOKEN is required for authenticated API tests."
+    exit 1
 }
 $headers = @{ Authorization = "Bearer $token" }
 
