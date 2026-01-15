@@ -1,16 +1,26 @@
-name: CI
+name: Enterprise CI/CD Pipeline
 
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Build/push image and deploy"
+        type: boolean
+        default: false
+      monitoring:
+        description: "Install/upgrade monitoring stack"
+        type: boolean
+        default: false
 
 jobs:
-  test:
+  validation:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
@@ -22,12 +32,172 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
-      - name: Security audit (pip-audit)
+      - name: Prepare reports directory
+        run: mkdir -p reports
+
+      - name: Lint with flake8
+        run: |
+          flake8 app/ src/ tests/ main.py core_engine.py database.py rate_limiter.py tasks.py
+
+      - name: Format check with black
+        run: |
+          black --check app/ src/ tests/ main.py core_engine.py database.py rate_limiter.py tasks.py
+
+      - name: Security scan with bandit
+        run: |
+          bandit -r app/ src/ -f json -o reports/bandit.json || true
+
+      - name: Dependency audit (pip-audit)
         run: |
           pip install pip-audit
           # NOTE: CVEs ignored due to upstream pins (dash<3.1 -> werkzeug<3.1, kubernetes<2.4 urllib3 upper bound).
           pip-audit -r requirements.txt --ignore-vuln CVE-2025-66221 --ignore-vuln CVE-2025-50182 --ignore-vuln CVE-2025-50181
 
-      - name: Run tests
-        run: pytest
+      - name: Secrets scan (trufflehog)
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: .
+          extra_args: --only-verified --fail
+
+      - name: SonarCloud scan
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_PROJECT_KEY != '' && secrets.SONAR_ORGANIZATION != '' }}
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+
+  testing:
+    runs-on: ubuntu-latest
+    needs: validation
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/ -v --junitxml=results.xml --cov=. --cov-report=xml
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: |
+            results.xml
+            coverage.xml
+            reports/
+
+      - name: Upload coverage report
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    needs: testing
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.deploy == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      secrets.DOCKER_REGISTRY != '' && secrets.DOCKER_USERNAME != '' &&
+      secrets.DOCKER_PASSWORD != '' && secrets.DOCKER_IMAGE != '')
+    env:
+      DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      KUBE_DEPLOYMENT_NAME: ${{ secrets.KUBE_DEPLOYMENT_NAME }}
+      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        run: |
+          docker build -t ${DOCKER_IMAGE}:latest .
+          docker push ${DOCKER_IMAGE}:latest
+
+      - name: Set up kubectl
+        if: ${{ env.KUBE_CONFIG_DATA != '' && hashFiles('k8s/deployment.yaml') != '' }}
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Configure kubeconfig
+        if: ${{ env.KUBE_CONFIG_DATA != '' && hashFiles('k8s/deployment.yaml') != '' }}
+        run: |
+          mkdir -p $HOME/.kube
+          echo "$KUBE_CONFIG_DATA" | base64 --decode > $HOME/.kube/config
+
+      - name: Deploy to Kubernetes
+        if: ${{ env.KUBE_CONFIG_DATA != '' && hashFiles('k8s/deployment.yaml') != '' }}
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          if [ -n "$KUBE_DEPLOYMENT_NAME" ]; then
+            kubectl rollout status deployment/"$KUBE_DEPLOYMENT_NAME" -n "${KUBE_NAMESPACE:-default}"
+          fi
+
+  monitoring:
+    runs-on: ubuntu-latest
+    needs: build_and_deploy
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.monitoring == true) &&
+      secrets.KUBE_CONFIG_DATA != '' && hashFiles('monitoring/alerts.yaml') != ''
+    env:
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "$KUBE_CONFIG_DATA" | base64 --decode > $HOME/.kube/config
+
+      - name: Install Prometheus and Grafana
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm upgrade --install monitoring prometheus-community/kube-prometheus-stack
+
+      - name: Configure alerts
+        run: |
+          kubectl apply -f monitoring/alerts.yaml
