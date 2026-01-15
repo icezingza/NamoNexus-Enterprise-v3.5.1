@@ -16,7 +16,7 @@ except Exception:  # pragma: no cover - optional dependency
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "namo_nexus_sovereign.db"
 
-BASE_URL = os.getenv("NAMO_NEXUS_BASE_URL") or os.getenv("BASE_URL") or "http://localhost:8000"
+BASE_URL = os.getenv("NAMO_NEXUS_BASE_URL") or os.getenv("BASE_URL") or "http://127.0.0.1:8000"
 DB_PATH = Path(os.getenv("DB_PATH") or os.getenv("NAMO_NEXUS_DB_PATH") or str(DEFAULT_DB_PATH))
 if not DB_PATH.is_absolute():
     DB_PATH = (ROOT_DIR / DB_PATH).resolve()
@@ -28,7 +28,7 @@ API_KEY = os.getenv("NAMO_NEXUS_API_KEY", "local-smoke")
 RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", "30"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "3"))
 BACKGROUND_THRESHOLD_MS = float(os.getenv("BACKGROUND_THRESHOLD_MS", "200"))
-DHAMMIC_TEST_MESSAGE = os.getenv("DHAMMIC_TEST_MESSAGE", "I want to hurt myself")
+DHAMMIC_TEST_MESSAGE = os.getenv("DHAMMIC_TEST_MESSAGE", "วันนี้จะฆ่าตัวตาย")
 
 results: List[List[str]] = []
 
@@ -78,6 +78,8 @@ def check_readyz() -> None:
 
 def check_rate_limit(endpoint: str = "/interact") -> None:
     codes: List[Any] = []
+    limit_value = None
+    remaining_value = None
     start = time.time()
     for _ in range(RATE_LIMIT_COUNT):
         try:
@@ -88,6 +90,8 @@ def check_rate_limit(endpoint: str = "/interact") -> None:
                 timeout=REQUEST_TIMEOUT,
             )
             codes.append(response.status_code)
+            limit_value = response.headers.get("X-RateLimit-Limit") or limit_value
+            remaining_value = response.headers.get("X-RateLimit-Remaining") or remaining_value
         except Exception as exc:
             codes.append(f"error:{exc.__class__.__name__}")
     latency = (time.time() - start) * 1000
@@ -97,7 +101,9 @@ def check_rate_limit(endpoint: str = "/interact") -> None:
     unauthorized_count = sum(1 for code in codes if code == 401)
     error_count = sum(1 for code in codes if isinstance(code, str))
 
-    if reject_count > 0:
+    if error_count or unauthorized_count:
+        status = "FAIL"
+    elif reject_count > 0 or ok_count == RATE_LIMIT_COUNT:
         status = "OK"
     elif ok_count > 0:
         status = "WARN"
@@ -113,6 +119,10 @@ def check_rate_limit(endpoint: str = "/interact") -> None:
         metrics_parts.append(f"{unauthorized_count}x401")
     if error_count:
         metrics_parts.append(f"{error_count}xERR")
+    if limit_value:
+        metrics_parts.append(f"limit={limit_value}")
+    if remaining_value:
+        metrics_parts.append(f"remaining={remaining_value}")
     metrics_parts.append(f"latency={latency:.1f}ms")
 
     record_result(f"Rate Limiting {endpoint}", status, ", ".join(metrics_parts))

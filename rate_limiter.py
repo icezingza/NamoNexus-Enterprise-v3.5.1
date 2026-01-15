@@ -11,6 +11,7 @@ import redis
 class RateLimitResult:
     allowed: bool
     retry_after: float
+    remaining: float
 
 
 class TokenBucketStore:
@@ -30,10 +31,10 @@ class InMemoryTokenBucketStore(TokenBucketStore):
         if tokens < 1.0:
             retry_after = (1.0 - tokens) / refill_rate if refill_rate else 1.0
             self._state[key] = (tokens, now)
-            return RateLimitResult(False, retry_after)
+            return RateLimitResult(False, retry_after, tokens)
         tokens -= 1.0
         self._state[key] = (tokens, now)
-        return RateLimitResult(True, 0.0)
+        return RateLimitResult(True, 0.0, tokens)
 
 
 class RedisTokenBucketStore(TokenBucketStore):
@@ -77,7 +78,7 @@ class RedisTokenBucketStore(TokenBucketStore):
         retry_after = (
             (1.0 - float(tokens)) / refill_rate if not allowed and refill_rate else 0.0
         )
-        return RateLimitResult(allowed, retry_after)
+        return RateLimitResult(allowed, retry_after, float(tokens))
 
 
 def build_rate_limiter_store() -> TokenBucketStore:

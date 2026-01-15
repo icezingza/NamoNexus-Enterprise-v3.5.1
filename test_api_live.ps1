@@ -1,6 +1,10 @@
 Write-Host "========== NAMONEXUS LIVE API TEST =========="
 
 Write-Host "`n[0/5] Cleaning up port 8000..."
+$baseUrl = $env:NAMO_NEXUS_BASE_URL
+if (-not $baseUrl) {
+    $baseUrl = "http://127.0.0.1:8000"
+}
 $running = Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
     Where-Object { $_.CommandLine -match "main\.py" }
 if ($running) {
@@ -30,7 +34,7 @@ Start-Sleep -Seconds 3
 
 Write-Host "`n[2/5] Testing GET /health..."
 try {
-    $json = Invoke-RestMethod -Uri http://localhost:8000/health -Method Get
+    $json = Invoke-RestMethod -Uri "$baseUrl/health" -Method Get
     Write-Host "Status: $($json.status)"
     Write-Host "Version: $($json.version)"
 } catch {
@@ -39,7 +43,7 @@ try {
 
 Write-Host "`n[3/5] Testing GET /healthz..."
 try {
-    $json = Invoke-RestMethod -Uri http://localhost:8000/healthz -Method Get
+    $json = Invoke-RestMethod -Uri "$baseUrl/healthz" -Method Get
     Write-Host "Status: $($json.status)"
 } catch {
     Write-Host "Healthz check failed: $_"
@@ -59,7 +63,7 @@ try {
         user_id = "test_user_001"
     } | ConvertTo-Json -Compress
 
-    $json = Invoke-RestMethod -Uri http://localhost:8000/reflect -Method Post -ContentType "application/json" -Headers $headers -Body $body
+    $json = Invoke-RestMethod -Uri "$baseUrl/reflect" -Method Post -ContentType "application/json" -Headers $headers -Body $body
     Write-Host "Tone: $($json.emotional_tone)"
     Write-Host "Risk Level: $($json.risk_level)"
     Write-Host "Confidence: $($json.multimodal_confidence)"
@@ -80,7 +84,7 @@ try {
         message = "I have an important presentation tomorrow and I'm nervous about it"
     } | ConvertTo-Json -Compress
 
-    $json = Invoke-RestMethod -Uri http://localhost:8000/interact -Method Post -ContentType "application/json" -Headers $headers -Body $body
+    $json = Invoke-RestMethod -Uri "$baseUrl/interact" -Method Post -ContentType "application/json" -Headers $headers -Body $body
     Write-Host "Tone: $($json.emotional_tone)"
     Write-Host "Risk Level: $($json.risk_level)"
     Write-Host "Dharma Score: $($json.dharma_score)"

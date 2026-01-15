@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import secrets
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -174,10 +175,18 @@ class NamoNexusEnterprise:
             if broker_url:
                 process_triage_background.delay(payload)
             else:
-                process_triage_background(payload)
+                threading.Thread(
+                    target=process_triage_background,
+                    args=(payload,),
+                    daemon=True,
+                ).start()
         except Exception:
             logger.exception("triage_background_enqueue_failed")
-            process_triage_background(payload)
+            threading.Thread(
+                target=process_triage_background,
+                args=(payload,),
+                daemon=True,
+            ).start()
         if human_required:
             logger.warning(
                 "crisis_alert_enqueued user_id=%s session_id=%s",
@@ -199,6 +208,7 @@ rate_limiter = TokenBucketRateLimiter(
     refill_rate=rate_limit_refill,
     store=rate_limit_store,
 )
+rate_limit_per_minute = int(round(rate_limit_refill * 60))
 
 
 @app.post("/triage", response_model=TriageResponse)
@@ -243,12 +253,24 @@ async def rate_limit_middleware(request: Request, call_next):
     identifier = identifier or "anonymous"
     result = rate_limiter.allow(identifier)
     if not result.allowed:
+        limit_headers = {
+            "X-RateLimit-Limit": str(rate_limit_per_minute),
+            "X-RateLimit-Burst": str(rate_limiter.capacity),
+            "X-RateLimit-Remaining": str(max(0, int(result.remaining))),
+        }
         return JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded"},
-            headers={"Retry-After": str(max(1, math.ceil(result.retry_after)))},
+            headers={
+                "Retry-After": str(max(1, math.ceil(result.retry_after))),
+                **limit_headers,
+            },
         )
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers["X-RateLimit-Limit"] = str(rate_limit_per_minute)
+    response.headers["X-RateLimit-Burst"] = str(rate_limiter.capacity)
+    response.headers["X-RateLimit-Remaining"] = str(max(0, int(result.remaining)))
+    return response
 
 
 @app.middleware("http")
