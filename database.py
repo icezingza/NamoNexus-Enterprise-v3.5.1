@@ -136,11 +136,6 @@ class GridIntelligence:
                     "TH-GRID-01",
                 ),
             )
-        self._invalidate_session_cache(data["session_id"])
-        self._invalidate_global_cache()
-
-    async def store_sovereign_async(self, data: Dict) -> None:
-        await asyncio.to_thread(self.store_sovereign, data)
 
     def create_crisis_alert(self, data: Dict) -> List[str]:
         empathy_prompts = self._generate_empathy_prompts(data["risk_level"])
@@ -214,11 +209,6 @@ class GridIntelligence:
                 }
                 for row in cursor.fetchall()
             ]
-        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
-        return result
-
-    async def get_session_history_async(self, session_id: str) -> List[Dict]:
-        return await asyncio.to_thread(self.get_session_history, session_id)
 
     def get_alerts(self, session_id: str) -> List[Dict]:
         cache_key = self._cache_key("session_alerts", session_id)
@@ -246,12 +236,7 @@ class GridIntelligence:
                         "resolved": bool(row[3]),
                     }
                 )
-            result = alerts
-        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
-        return result
-
-    async def get_alerts_async(self, session_id: str) -> List[Dict]:
-        return await asyncio.to_thread(self.get_alerts, session_id)
+            return alerts
 
     def get_global_metrics(self) -> List[Dict]:
         """Fetch historical risk levels and dharma scores for graph visualization."""
@@ -272,11 +257,6 @@ class GridIntelligence:
                 {"time": row[0], "risk": row[1], "dharma": row[2]}
                 for row in cursor.fetchall()
             ]
-        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
-        return result
-
-    async def get_global_metrics_async(self) -> List[Dict]:
-        return await asyncio.to_thread(self.get_global_metrics)
 
     def get_recent_sessions(self) -> List[Dict]:
         """Fetch unique recent sessions for the monitor."""
@@ -304,11 +284,6 @@ class GridIntelligence:
                 {"session_id": row[0], "user_id": row[1], "last_active": row[2]}
                 for row in cursor.fetchall()
             ]
-        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
-        return result
-
-    async def get_recent_sessions_async(self) -> List[Dict]:
-        return await asyncio.to_thread(self.get_recent_sessions)
 
     def get_all_alerts(self) -> List[Dict]:
         """Fetch all active crisis alerts."""
@@ -335,30 +310,3 @@ class GridIntelligence:
                 }
                 for row in cursor.fetchall()
             ]
-        self.cache.set_json(cache_key, result, DEFAULT_CACHE_TTL)
-        return result
-
-    async def get_all_alerts_async(self) -> List[Dict]:
-        return await asyncio.to_thread(self.get_all_alerts)
-
-    def _invalidate_session_cache(self, session_id: str) -> None:
-        keys = [
-            self._cache_key("session_history", session_id),
-            self._cache_key("session_alerts", session_id),
-        ]
-        for key in keys:
-            self.cache.delete(key)
-
-    def _invalidate_global_cache(self) -> None:
-        keys = [
-            self._cache_key("global_metrics"),
-            self._cache_key("recent_sessions"),
-            self._cache_key("all_alerts"),
-        ]
-        for key in keys:
-            self.cache.delete(key)
-
-    def _cache_key(self, name: str, identifier: Optional[str] = None) -> str:
-        if identifier:
-            return f"grid:{name}:{identifier}"
-        return f"grid:{name}"

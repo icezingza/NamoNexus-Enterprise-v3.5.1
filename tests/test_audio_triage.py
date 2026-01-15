@@ -92,8 +92,8 @@ class TestAudioTriageEndpoint:
             headers=AUTH_HEADERS,
         )
         
-        assert response.status_code == 400
-        assert "Unsupported audio format" in response.json()["detail"]
+        assert response.status_code == 422
+        assert "Only .wav / .mp3 allowed" in response.json()["detail"]
     
     def test_audio_triage_empty_file(self):
         """Test audio triage with empty file fails."""
@@ -104,7 +104,7 @@ class TestAudioTriageEndpoint:
             headers=AUTH_HEADERS,
         )
         
-        assert response.status_code == 400
+        assert response.status_code == 422
     
     def test_audio_triage_mp3_format(self):
         """Test audio triage accepts MP3 content type."""

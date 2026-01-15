@@ -11,18 +11,25 @@ import uuid
 from datetime import datetime
 from typing import Dict
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from fastapi.security import HTTPBearer
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from cache import build_cache_from_env
 from core_engine import HarmonicGovernor
 from database import GridIntelligence
 from metrics import record_metrics
-from models import MultiModalAnalysis, TriageRequest, TriageResponse, VoiceFeaturesInput
-from voice_extractor import voice_extractor, VoiceAnalysisResult
+from models import MultiModalAnalysis, TriageResponse
 from rate_limiter import (
     TokenBucketRateLimiter,
     build_rate_limiter_store,
@@ -30,28 +37,26 @@ from rate_limiter import (
 )
 from sanitization import sanitize_text
 from structured_logging import configure_logging, trace_id_var
-from tasks import process_triage_background
+from src.auth_utils import verify_token
+from src.schemas_day2 import InteractRequest, ReflectRequest, TriageRequest
+from src.security_patch import add_https_redirect
 
 configure_logging()
 logger = logging.getLogger("namo_nexus")
 
 
-def load_auth_token() -> str:
-    token = os.getenv("NAMO_NEXUS_TOKEN")
-    if token:
-        return token
-    generated = secrets.token_urlsafe(32)
-    logger.warning("NAMO_NEXUS_TOKEN not set; generated ephemeral token for this process.")
-    logger.warning("Generated auth token: %s", generated)
-    return generated
-
-
+# ---------- Minimal CORS helper (compatible 5a71b0a7) ----------
 def load_cors_origins() -> list[str]:
-    raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000")
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    """
+    Return allowed CORS origins from env.
+    If CORS_ORIGINS is not set → allow localhost only.
+    Format: comma-separated, no space.
+    """
+    raw = os.getenv("CORS_ORIGINS")
+    if not raw:
+        raw = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:8080")
+    return [o.strip() for o in raw.split(",") if o.strip()]
 
-
-AUTH_TOKEN = load_auth_token()
 DB_PATH = os.getenv("DB_PATH", os.path.join("data", "namo_nexus_sovereign.db"))
 
 app = FastAPI(
@@ -68,7 +73,7 @@ if cors_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-security = HTTPBearer()
+add_https_redirect(app)
 
 
 class NamoNexusEnterprise:
@@ -158,41 +163,31 @@ class NamoNexusEnterprise:
         multimodal: MultiModalAnalysis,
         human_required: bool,
     ) -> None:
-        payload = {
-            "user_id": request.user_id,
-            "session_id": session_id,
-            "message": request.message,
-            "response": response,
-            "risk_level": ethics["risk_level"],
-            "dharma_score": ethics["dharma_score"],
-            "multimodal": {
-                "combined_risk": multimodal.combined_risk,
-                "confidence": multimodal.confidence,
-            },
-            "human_required": human_required,
-        }
-        broker_url = os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
-        try:
-            if broker_url:
-                process_triage_background.delay(payload)
-            else:
-                threading.Thread(
-                    target=process_triage_background,
-                    args=(payload,),
-                    daemon=True,
-                ).start()
-        except Exception:
-            logger.exception("triage_background_enqueue_failed")
-            threading.Thread(
-                target=process_triage_background,
-                args=(payload,),
-                daemon=True,
-            ).start()
+        self.grid.store_sovereign(
+            {
+                "user_id": request.user_id,
+                "session_id": session_id,
+                "message": request.message,
+                "response": response,
+                "risk_level": ethics["risk_level"],
+                "dharma_score": ethics["dharma_score"],
+                "multimodal": {
+                    "combined_risk": multimodal.combined_risk,
+                    "confidence": multimodal.confidence,
+                },
+            }
+        )
+
         if human_required:
-            logger.warning(
-                "crisis_alert_enqueued user_id=%s session_id=%s",
-                request.user_id,
-                session_id,
+            self.grid.create_crisis_alert(
+                {
+                    "user_id": request.user_id,
+                    "session_id": session_id,
+                    "risk_level": ethics["risk_level"],
+                }
+            )
+            print(
+                f"▲ CRISIS ALERT: User {request.user_id} requires immediate human intervention"
             )
 
     @staticmethod
@@ -200,8 +195,7 @@ class NamoNexusEnterprise:
         return f"session_{uuid.uuid4().hex[:12]}"
 
 
-cache_backend = build_cache_from_env()
-engine = NamoNexusEnterprise(DB_PATH, cache_backend=cache_backend)
+engine = NamoNexusEnterprise(DB_PATH)
 rate_limit_capacity, rate_limit_refill = load_rate_limit_settings()
 rate_limit_store = build_rate_limiter_store()
 rate_limiter = TokenBucketRateLimiter(
@@ -212,87 +206,101 @@ rate_limiter = TokenBucketRateLimiter(
 rate_limit_per_minute = int(round(rate_limit_refill * 60))
 
 
-@app.post("/triage", response_model=TriageResponse)
+@app.post("/triage", response_model=TriageResponse, dependencies=[Depends(verify_token)])
 async def triage_endpoint(
     request: TriageRequest,
     background_tasks: BackgroundTasks,
-    credentials=Depends(security),
 ):
-    if credentials.credentials != AUTH_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
     cleaned_message = sanitize_text(request.message)
-    sanitized_request = request.model_copy(update={"message": cleaned_message})
+    voice_features = request.voice_features
+    if hasattr(voice_features, "model_dump"):
+        voice_features = voice_features.model_dump()
+    facial_features = request.facial_features
+    if hasattr(facial_features, "model_dump"):
+        facial_features = facial_features.model_dump()
+    sanitized_request = request.model_copy(
+        update={
+            "message": cleaned_message,
+            "voice_features": voice_features,
+            "facial_features": facial_features,
+        }
+    )
     return await engine.process_triage(sanitized_request, background_tasks)
 
 
-@app.post("/interact", response_model=TriageResponse)
+@app.post("/interact", response_model=TriageResponse, dependencies=[Depends(verify_token)])
 async def interact_alias(
-    request: TriageRequest,
+    request: InteractRequest,
     background_tasks: BackgroundTasks,
-    credentials=Depends(security),
 ):
-    return await triage_endpoint(request, background_tasks, credentials)
+    triage_request = TriageRequest(user_id=request.user_id, message=request.message)
+    return await triage_endpoint(triage_request, background_tasks)
 
 
-@app.post("/reflect", response_model=TriageResponse)
+@app.post("/reflect", response_model=TriageResponse, dependencies=[Depends(verify_token)])
 async def reflect_alias(
-    request: TriageRequest,
+    request: ReflectRequest,
     background_tasks: BackgroundTasks,
-    credentials=Depends(security),
 ):
-    return await triage_endpoint(request, background_tasks, credentials)
+    triage_request = TriageRequest(
+        user_id=request.user_id,
+        message=request.message,
+        session_id=request.session_id,
+    )
+    return await triage_endpoint(triage_request, background_tasks)
 
 
 # Audio triage configuration
-ALLOWED_AUDIO_TYPES = {
-    "audio/wav", "audio/wave", "audio/x-wav",
-    "audio/mpeg", "audio/mp3",
-    "audio/ogg", "audio/webm",
-    "audio/flac", "audio/x-flac",
-}
-MAX_AUDIO_SIZE = 50 * 1024 * 1024  # 50MB - supports 30+ min calls
+ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/mpeg"}
+MAX_AUDIO_SIZE = 5 * 1024 * 1024  # 5MB
 
 
-@app.post("/triage/audio", response_model=TriageResponse)
+@app.post("/triage/audio", response_model=TriageResponse, dependencies=[Depends(verify_token)])
 async def triage_audio_endpoint(
     background_tasks: BackgroundTasks,
-    audio: UploadFile = File(..., description="Audio file (WAV, MP3, OGG, WEBM, FLAC)"),
-    user_id: str = Form(..., description="User identifier"),
-    session_id: str | None = Form(None, description="Optional session ID"),
-    message: str | None = Form(None, description="Optional text message (will transcribe if empty)"),
-    credentials=Depends(security),
+    audio: UploadFile | None = File(None, description="Audio file (WAV, MP3)"),
+    audio_file: UploadFile | None = File(None, description="Audio file (WAV, MP3)"),
+    user_id: str = Form(..., min_length=1, max_length=255, description="User identifier"),
+    session_id: str | None = Form(
+        None, max_length=255, description="Optional session ID"
+    ),
+    message: str | None = Form(
+        None,
+        max_length=5_000,
+        description="Optional text message (will transcribe if empty)",
+    ),
 ):
     """Triage endpoint that accepts audio file for voice analysis.
     
     This endpoint extracts voice features (pitch, energy, speech rate, etc.)
     from the uploaded audio and optionally transcribes speech to text using Whisper.
     
-    Supported formats: WAV, MP3, OGG, WEBM, FLAC
-    Max file size: 50MB (supports ~30+ minute voice recordings)
+    Supported formats: WAV, MP3
+    Max file size: 5MB
     """
-    if credentials.credentials != AUTH_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
+    selected_audio = audio_file or audio
+    if selected_audio is None:
+        raise HTTPException(status_code=422, detail="Audio file is required")
     # Validate content type
-    if audio.content_type and audio.content_type not in ALLOWED_AUDIO_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported audio format: {audio.content_type}. Allowed: WAV, MP3, OGG, WEBM, FLAC"
-        )
+    if not selected_audio.content_type or selected_audio.content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(status_code=422, detail="Only .wav / .mp3 allowed")
     
     # Read and validate size
-    audio_bytes = await audio.read()
+    audio_bytes = await selected_audio.read()
     if len(audio_bytes) > MAX_AUDIO_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Audio file too large ({len(audio_bytes) / 1024 / 1024:.1f}MB). Max: 50MB"
-        )
+        raise HTTPException(status_code=413, detail="File too large")
     
     if len(audio_bytes) < 1000:
-        raise HTTPException(status_code=400, detail="Audio file too small or empty")
+        raise HTTPException(status_code=422, detail="Audio file too small or empty")
     
     # Extract voice features (run in thread pool to not block)
+    try:
+        from voice_extractor import voice_extractor
+    except ModuleNotFoundError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Voice analysis dependencies not installed",
+        ) from exc
     try:
         voice_result: VoiceAnalysisResult = await asyncio.to_thread(
             voice_extractor.extract_from_bytes,
@@ -314,6 +322,8 @@ async def triage_audio_endpoint(
         final_message = voice_result.transcription
     if not final_message:
         final_message = "[Audio triage - no text available]"
+    if len(final_message) > 5_000:
+        raise HTTPException(status_code=422, detail="Message too long")
     
     cleaned_message = sanitize_text(final_message)
     
@@ -322,7 +332,7 @@ async def triage_audio_endpoint(
         message=cleaned_message,
         user_id=user_id,
         session_id=session_id,
-        voice_features=VoiceFeaturesInput(**voice_result.to_voice_features_dict()),
+        voice_features=voice_result.to_voice_features_dict(),
         facial_features=None,
     )
     
@@ -396,6 +406,50 @@ async def observability_middleware(request: Request, call_next):
         trace_id_var.reset(token)
 
 
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    if request.url.path in {"/health", "/ready", "/metrics"}:
+        return await call_next(request)
+    identifier = request.headers.get("X-API-Key")
+    if not identifier and request.client:
+        identifier = request.client.host
+    identifier = identifier or "anonymous"
+    result = rate_limiter.allow(identifier)
+    if not result.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": str(int(result.retry_after))},
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Trace-Id", str(uuid.uuid4()))
+    token = trace_id_var.set(trace_id)
+    start = time.time()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception:
+        logger.exception("request_failed method=%s path=%s", request.method, request.url.path)
+        raise
+    finally:
+        latency_ms = (time.time() - start) * 1000
+        record_metrics(request.method, request.url.path, status_code, latency_ms)
+        logger.info(
+            "request_completed method=%s path=%s status=%s latency_ms=%.2f",
+            request.method,
+            request.url.path,
+            status_code,
+            latency_ms,
+        )
+        trace_id_var.reset(token)
+
+
 @app.get("/health")
 async def health_check():
     return {
@@ -440,11 +494,8 @@ async def metrics_endpoint():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.get("/harmonic-console")
-async def get_harmonic_console_global(credentials=Depends(security)):
-    if credentials.credentials != AUTH_TOKEN:
-        raise HTTPException(status_code=401)
-
+@app.get("/harmonic-console", dependencies=[Depends(verify_token)])
+async def get_harmonic_console_global():
     metrics = await engine.grid.get_global_metrics_async()
     sessions = await engine.grid.get_recent_sessions_async()
     alerts = await engine.grid.get_all_alerts_async()
@@ -456,11 +507,8 @@ async def get_harmonic_console_global(credentials=Depends(security)):
     }
 
 
-@app.get("/harmonic-console/{session_id}")
-async def get_harmonic_console_session(session_id: str, credentials=Depends(security)):
-    if credentials.credentials != AUTH_TOKEN:
-        raise HTTPException(status_code=401)
-
+@app.get("/harmonic-console/{session_id}", dependencies=[Depends(verify_token)])
+async def get_harmonic_console_session(session_id: str):
     history = await engine.grid.get_session_history_async(session_id)
     alerts = await engine.grid.get_alerts_async(session_id)
 

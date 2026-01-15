@@ -10,54 +10,8 @@ services:
       - ./namo_data:/app/data
     environment:
       - DB_PATH=/app/data/namo_nexus_sovereign.db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_BACKEND_URL=redis://redis:6379/0
-      - RATE_LIMIT_PER_MINUTE=1000
-      - RATE_LIMIT_BURST=200
-    depends_on:
-      - redis
     deploy:
       resources:
         limits:
           cpus: "2"
           memory: 2G
-  worker:
-    build: .
-    container_name: namo_enterprise_worker
-    restart: always
-    command: ["celery", "-A", "tasks", "worker", "-l", "info"]
-    volumes:
-      - ./namo_data:/app/data
-    environment:
-      - DB_PATH=/app/data/namo_nexus_sovereign.db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_BACKEND_URL=redis://redis:6379/0
-      - RATE_LIMIT_PER_MINUTE=1000
-      - RATE_LIMIT_BURST=200
-    depends_on:
-      - redis
-  redis:
-    image: redis:7.2-alpine
-    container_name: namo_enterprise_redis
-    restart: always
-    ports:
-      - "6379:6379"
-  db:
-    image: postgres:15-alpine
-    container_name: namo_enterprise_db
-    restart: always
-    profiles:
-      - postgres
-    environment:
-      - POSTGRES_DB=namo_nexus
-      - POSTGRES_USER=namo_nexus
-      - POSTGRES_PASSWORD=namo_nexus_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - namo_postgres_data:/var/lib/postgresql/data
-
-volumes:
-  namo_postgres_data:
