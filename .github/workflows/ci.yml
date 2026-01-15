@@ -49,6 +49,13 @@ jobs:
         run: |
           bandit -r app/ src/ -f json -o reports/bandit.json || true
 
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-reports
+          path: reports/
+
       - name: Dependency audit (pip-audit)
         run: |
           pip install pip-audit
@@ -101,7 +108,6 @@ jobs:
           path: |
             results.xml
             coverage.xml
-            reports/
 
       - name: Upload coverage report
         if: ${{ secrets.CODECOV_TOKEN != '' }}
@@ -116,7 +122,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: testing
     if: >
-      (github.event_name == 'workflow_dispatch' && inputs.deploy == true) ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy == 'true' &&
+      secrets.DOCKER_REGISTRY != '' && secrets.DOCKER_USERNAME != '' &&
+      secrets.DOCKER_PASSWORD != '' && secrets.DOCKER_IMAGE != '') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       secrets.DOCKER_REGISTRY != '' && secrets.DOCKER_USERNAME != '' &&
       secrets.DOCKER_PASSWORD != '' && secrets.DOCKER_IMAGE != '')
@@ -171,7 +179,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build_and_deploy
     if: >
-      (github.event_name == 'workflow_dispatch' && inputs.monitoring == true) &&
+      (github.event_name == 'workflow_dispatch' && inputs.monitoring == 'true') &&
       secrets.KUBE_CONFIG_DATA != '' && hashFiles('monitoring/alerts.yaml') != ''
     env:
       KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
