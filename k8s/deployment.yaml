@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: namonexus-secrets
+type: Opaque
+stringData:
+  NAMO_NEXUS_TOKEN: "CHANGE_ME"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: namonexus-config
+data:
+  DB_PATH: /app/data/namo_nexus_sovereign.db
+  CORS_ALLOW_ORIGINS: http://localhost:3000
+  RATE_LIMIT_PER_MINUTE: "1000"
+  RATE_LIMIT_BURST: "200"
+  LOG_LEVEL: INFO
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: namonexus-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: namonexus
+  labels:
+    app: namonexus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namonexus
+  template:
+    metadata:
+      labels:
+        app: namonexus
+    spec:
+      containers:
+        - name: namonexus
+          image: your-registry/namonexus-enterprise:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: namonexus-config
+            - secretRef:
+                name: namonexus-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: namonexus-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: namonexus
+  labels:
+    app: namonexus
+spec:
+  selector:
+    app: namonexus
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP

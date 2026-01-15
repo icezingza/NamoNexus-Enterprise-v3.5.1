@@ -1,0 +1,61 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: namonexus
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: namonexus
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: namonexus-alerts
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: namonexus.rules
+      rules:
+        - alert: NamoNexusHighErrorRate
+          expr: |
+            sum(rate(namo_nexus_http_request_errors_total{status=~"5.."}[5m]))
+            /
+            sum(rate(namo_nexus_http_requests_total[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High 5xx error rate"
+            description: "5xx responses exceed 5% for 10 minutes."
+        - alert: NamoNexusHighLatency
+          expr: |
+            (sum(rate(namo_nexus_http_request_latency_ms_sum[5m]))
+            /
+            sum(rate(namo_nexus_http_request_latency_ms_count[5m]))) > 500
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High request latency"
+            description: "Average request latency above 500 ms for 10 minutes."
+        - alert: NamoNexusNoTraffic
+          expr: |
+            sum(rate(namo_nexus_http_requests_total[5m])) == 0
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: "No traffic"
+            description: "No requests observed for 15 minutes."
