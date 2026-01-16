@@ -7,7 +7,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./namo_data:/app/data
+      - ./namo_data:/app/data  # Mount folder to keep SQLite WAL files
     environment:
       - DB_PATH=/app/data/namo_nexus_sovereign.db
     deploy:
