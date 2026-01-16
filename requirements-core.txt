@@ -3,5 +3,5 @@ uvicorn>=0.32.0
 pydantic>=2.6.4
 pydantic-settings>=2.2.1
 sqlalchemy>=2.0.30
-pysqlcipher3>=1.2.0; platform_system != "Windows"
+pysqlcipher3==1.0.3; platform_system != "Windows"
 sqlcipher3>=0.6.2; platform_system == "Windows"
