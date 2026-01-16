@@ -1,0 +1,11 @@
+INFO:     Using SQLCipher encrypted database
+INFO:     Started server process [23196]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+{"timestamp": "2026-01-16T05:15:29.999067+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "79526a3c-6cc2-44f5-ab46-1f0236ca4dd1", "message": "request_completed method=POST path=/triage status=422 latency_ms=5.83"}
+{"timestamp": "2026-01-16T05:15:30.039850+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "50f1c029-53aa-47df-aadf-6f1218327cae", "message": "request_completed method=POST path=/triage status=422 latency_ms=46.61"}
+{"timestamp": "2026-01-16T05:16:00.837149+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "7ed155a3-fea9-40ef-b399-cf8218acefbf", "message": "request_completed method=POST path=/triage status=401 latency_ms=5.79"}
+{"timestamp": "2026-01-16T05:16:00.860635+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "32a7ecbe-c576-4b9f-9099-bd97cdb38ef6", "message": "request_completed method=POST path=/triage status=401 latency_ms=29.49"}
+{"timestamp": "2026-01-16T05:16:14.452029+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "a9889614-8671-486d-a14c-a646cee5f69b", "message": "request_completed method=POST path=/triage status=200 latency_ms=58.33"}
+{"timestamp": "2026-01-16T05:16:14.453104+00:00", "log_level": "INFO", "service_name": "namo-nexus-enterprise", "trace_id": "7e0ff606-5a17-4047-91dc-693654330356", "message": "request_completed method=POST path=/triage status=200 latency_ms=58.33"}
