@@ -24,6 +24,9 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import sessionmaker
 
 from cache import build_cache_from_env
@@ -79,6 +82,10 @@ if cors_origins:
         allow_headers=["*"],
     )
 add_https_redirect(app)
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 def _resolve_audit_db_path() -> str:
@@ -253,7 +260,14 @@ rate_limiter = TokenBucketRateLimiter(
 rate_limit_per_minute = int(round(rate_limit_refill * 60))
 
 
-@app.post("/triage", response_model=TriageResponse, dependencies=[Depends(verify_token)])
+@app.post(
+    "/triage",
+    response_model=TriageResponse,
+    dependencies=[
+        Depends(verify_token),
+        Depends(limiter.limit("10/minute")),
+    ],
+)
 async def triage_endpoint(
     request: TriageRequest,
     background_tasks: BackgroundTasks,
@@ -275,7 +289,14 @@ async def triage_endpoint(
     return await engine.process_triage(sanitized_request, background_tasks)
 
 
-@app.post("/interact", response_model=TriageResponse, dependencies=[Depends(verify_token)])
+@app.post(
+    "/interact",
+    response_model=TriageResponse,
+    dependencies=[
+        Depends(verify_token),
+        Depends(limiter.limit("30/minute")),
+    ],
+)
 async def interact_alias(
     request: InteractRequest,
     background_tasks: BackgroundTasks,
@@ -284,7 +305,14 @@ async def interact_alias(
     return await triage_endpoint(triage_request, background_tasks)
 
 
-@app.post("/reflect", response_model=TriageResponse, dependencies=[Depends(verify_token)])
+@app.post(
+    "/reflect",
+    response_model=TriageResponse,
+    dependencies=[
+        Depends(verify_token),
+        Depends(limiter.limit("30/minute")),
+    ],
+)
 async def reflect_alias(
     request: ReflectRequest,
     background_tasks: BackgroundTasks,
@@ -302,7 +330,14 @@ ALLOWED_AUDIO_TYPES = {"audio/wav", "audio/mpeg"}
 MAX_AUDIO_SIZE = 5 * 1024 * 1024  # 5MB
 
 
-@app.post("/triage/audio", response_model=TriageResponse, dependencies=[Depends(verify_token)])
+@app.post(
+    "/triage/audio",
+    response_model=TriageResponse,
+    dependencies=[
+        Depends(verify_token),
+        Depends(limiter.limit("10/minute")),
+    ],
+)
 async def triage_audio_endpoint(
     background_tasks: BackgroundTasks,
     audio: UploadFile | None = File(None, description="Audio file (WAV, MP3)"),
