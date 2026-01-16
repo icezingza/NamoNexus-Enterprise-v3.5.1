@@ -47,6 +47,7 @@ from src.security_patch import add_https_redirect
 
 configure_logging()
 logger = logging.getLogger("namo_nexus")
+uvicorn_logger = logging.getLogger("uvicorn")
 
 
 # ---------- Minimal CORS helper (compatible 5a71b0a7) ----------
@@ -97,10 +98,26 @@ if not cipher_key:
     raise RuntimeError("DB_CIPHER_KEY or NAMO_NEXUS_TOKEN is required for SQLCipher")
 os.environ.setdefault("DB_CIPHER_KEY", cipher_key)
 
+try:
+    import pysqlcipher3  # noqa: F401
+
+    _has_sqlcipher = True
+except ImportError:
+    try:
+        import sqlcipher3  # noqa: F401
+
+        _has_sqlcipher = True
+    except ImportError:
+        _has_sqlcipher = False
+
 audit_engine = get_secure_engine(
     db_path=_resolve_audit_db_path(),
     cipher_key=cipher_key,
 )
+if _has_sqlcipher and cipher_key:
+    uvicorn_logger.info("Using SQLCipher encrypted database")
+else:
+    uvicorn_logger.info("Using standard SQLite (SQLCipher unavailable or no key)")
 AuditSessionLocal = sessionmaker(bind=audit_engine, expire_on_commit=False)
 AuditBase.metadata.create_all(bind=audit_engine)
 app.add_middleware(AuditMiddleware, session_factory=AuditSessionLocal)
