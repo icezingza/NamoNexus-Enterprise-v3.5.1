@@ -98,3 +98,7 @@ class MultiModalAnalysis:
     facial_distress: float
     combined_risk: float
     confidence: float
+    text_confidence: float = 0.0
+    voice_confidence: float = 0.0
+    facial_confidence: float = 0.0
+    risk_factors: Optional[List[str]] = None
