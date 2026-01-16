@@ -13,3 +13,8 @@ venv313
 data/chroma_db
 tests
 frontend/node_modules
+*.env*
+*.db
+*.key
+*.sqlite
+*.log
