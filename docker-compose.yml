@@ -5,7 +5,7 @@ services:
     container_name: namo_enterprise_v3
     restart: always
     ports:
-      - "8000:8000"
+      - "8080:8080"
     volumes:
       - ./namo_data:/app/data
     environment:

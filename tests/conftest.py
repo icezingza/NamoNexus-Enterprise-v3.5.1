@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 import typing
 from unittest.mock import AsyncMock, Mock
 
@@ -9,6 +10,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
+os.environ.setdefault("DB_CIPHER_KEY", "test-key-32-bytes-long-0123456")
+_test_db_path = os.path.join(tempfile.gettempdir(), "namo_nexus_test_audit.db")
+if os.path.exists(_test_db_path):
+    os.remove(_test_db_path)
+os.environ.setdefault("DB_PATH", _test_db_path)
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_test_db_path}")
 
 from main import app
 

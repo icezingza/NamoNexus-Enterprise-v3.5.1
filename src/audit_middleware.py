@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import datetime
 import json
 
-from starlette.datastructures import UploadFile
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.audit_log import write_log
@@ -17,38 +17,37 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if request.url.path in {"/health", "/healthz", "/readyz", "/metrics"}:
             return await call_next(request)
 
-        ip_addr = request.client.host if request.client else "unknown"
-        user_agent = request.headers.get("user-agent", "")[:500]
         method = request.method
         endpoint = request.url.path
 
-        payload = {}
+        user_id = "anonymous"
+        risk = "unknown"
         content_type = request.headers.get("content-type", "")
-        if content_type.startswith("multipart/form-data"):
-            form = await request.form()
-            for key, value in form.items():
-                if isinstance(value, UploadFile):
-                    payload[key] = {
-                        "filename": value.filename,
-                        "content_type": value.content_type,
-                    }
-                else:
-                    payload[key] = str(value)[:1000]
-        else:
+        if content_type.startswith("application/json"):
             body = await request.body()
             if body:
                 try:
-                    payload = json.loads(body)
+                    data = json.loads(body)
+                    if isinstance(data, dict):
+                        user_id = str(data.get("user_id") or user_id)
+                        risk = str(data.get("risk") or data.get("risk_level") or risk)
                 except Exception:
-                    payload = {"raw": body.decode("utf-8", "replace")[:1000]}
+                    pass
+        else:
+            user_id = request.query_params.get("user_id", user_id)
+            risk = request.query_params.get("risk", risk)
 
-        user_id = payload.get("user_id", "anonymous")
+        payload = {
+            "user_id": user_id,
+            "risk": risk,
+            "ts": datetime.datetime.utcnow().isoformat(),
+        }
 
         response = await call_next(request)
 
         db_session = self._session_factory()
         try:
-            write_log(db_session, user_id, endpoint, method, ip_addr, user_agent, payload)
+            write_log(db_session, user_id, endpoint, method, payload)
         finally:
             db_session.close()
 

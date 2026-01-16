@@ -14,6 +14,29 @@ NamoNexus Enterprise v3.5.1 คือร่างสมบูรณ์ (Referenc
 * [cite_start]**🇹🇭 Sovereign Grid Intelligence:** เก็บข้อมูลอ่อนไหวทั้งหมดลง Local Database (`namo_nexus_sovereign.db`) ภายในเซิร์ฟเวอร์องค์กร ไม่มีการส่งข้อมูลออกนอกประเทศ [cite: 112, 142]
 * [cite_start]**🤝 Harmonic Console Bridge:** เตรียม API พร้อมส่งต่อเคสวิกฤตให้เจ้าหน้าที่มนุษย์ พร้อม "Empathy Prompts" แนะนำวิธีการพูดคุย [cite: 134-138, 177]
 
+## Release Highlights
+Blockers resolved, PDPA/GDPR compliant, Docker secure.
+
+## Harmonic Architecture (Golden Ratio)
+```python
+GOLDEN_RATIO = (1 + 5**0.5) / 2
+
+
+def calculate_harmonic_risk(primary_risk: float, secondary_risk: float) -> float:
+    blended = (primary_risk * GOLDEN_RATIO + secondary_risk) / (GOLDEN_RATIO + 1)
+    return max(0.0, min(1.0, blended))
+
+
+def fibonacci_retry(attempt: int, base_seconds: float = 0.5, max_seconds: float = 30.0) -> float:
+    if attempt <= 0:
+        return 0.0
+    a, b = 0, 1
+    for _ in range(attempt):
+        a, b = b, a + b
+    delay = a * base_seconds
+    return max(0.0, min(delay, max_seconds))
+```
+
 ## 🛠️ Tech Stack
 * **Core:** Python 3.11, FastAPI
 * **Database:** SQLite (WAL Mode) with Thread-safe Connection Pool
@@ -245,4 +268,4 @@ pytest src/tests/test_api.py::test_health_endpoint -v
 ```
 
 ## License
-Licensed under the MIT License. See LICENSE.
+Licensed under the NamoNexus Commercial License. See LICENSE-COMMERCIAL.

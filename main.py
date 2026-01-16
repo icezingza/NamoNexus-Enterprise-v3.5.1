@@ -41,7 +41,7 @@ from rate_limiter import (
 )
 from sanitization import sanitize_text
 from structured_logging import configure_logging, trace_id_var
-from src.audit_log import Base as AuditBase
+from src.audit_log import Base as AuditBase, ensure_retention_policy
 from src.audit_middleware import AuditMiddleware
 from src.auth_utils import verify_token
 from src.database_secure import get_secure_engine
@@ -127,6 +127,7 @@ else:
     uvicorn_logger.info("Using standard SQLite (SQLCipher unavailable or no key)")
 AuditSessionLocal = sessionmaker(bind=audit_engine, expire_on_commit=False)
 AuditBase.metadata.create_all(bind=audit_engine)
+ensure_retention_policy(audit_engine)
 app.add_middleware(AuditMiddleware, session_factory=AuditSessionLocal)
 
 
@@ -488,50 +489,6 @@ async def observability_middleware(request: Request, call_next):
         trace_id_var.reset(token)
 
 
-@app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
-    if request.url.path in {"/health", "/ready", "/metrics"}:
-        return await call_next(request)
-    identifier = request.headers.get("X-API-Key")
-    if not identifier and request.client:
-        identifier = request.client.host
-    identifier = identifier or "anonymous"
-    result = rate_limiter.allow(identifier)
-    if not result.allowed:
-        return JSONResponse(
-            status_code=429,
-            content={"detail": "Rate limit exceeded"},
-            headers={"Retry-After": str(int(result.retry_after))},
-        )
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def observability_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-Id", str(uuid.uuid4()))
-    token = trace_id_var.set(trace_id)
-    start = time.time()
-    status_code = 500
-    try:
-        response = await call_next(request)
-        status_code = response.status_code
-        return response
-    except Exception:
-        logger.exception("request_failed method=%s path=%s", request.method, request.url.path)
-        raise
-    finally:
-        latency_ms = (time.time() - start) * 1000
-        record_metrics(request.method, request.url.path, status_code, latency_ms)
-        logger.info(
-            "request_completed method=%s path=%s status=%s latency_ms=%.2f",
-            request.method,
-            request.url.path,
-            status_code,
-            latency_ms,
-        )
-        trace_id_var.reset(token)
-
-
 @app.get("/health")
 async def health_check():
     return {
@@ -574,6 +531,18 @@ async def readyz():
 @app.get("/metrics")
 async def metrics_endpoint():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+def _remove_route(path: str) -> None:
+    app.router.routes = [
+        route for route in app.router.routes if getattr(route, "path", None) != path
+    ]
+
+
+app.remove_route = _remove_route  # type: ignore[attr-defined]
+
+if os.getenv("ENVIRONMENT") == "production":
+    app.remove_route("/metrics")
 
 
 @app.get("/harmonic-console", dependencies=[Depends(verify_token)])

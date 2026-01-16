@@ -5,6 +5,14 @@ from typing import Dict, Optional
 
 from models import MultiModalAnalysis
 
+GOLDEN_RATIO = (1 + 5**0.5) / 2
+
+
+def calculate_harmonic_risk(primary_risk: float, secondary_risk: float) -> float:
+    """Blend two risk signals using golden ratio weighting."""
+    blended = (primary_risk * GOLDEN_RATIO + secondary_risk) / (GOLDEN_RATIO + 1)
+    return max(0.0, min(1.0, blended))
+
 
 class DhammicDataLake:
     """Central dharma ruleset for ethical calibration and safety checks."""
@@ -153,8 +161,15 @@ class EthicalCalibrationKernel:
         self.ethics_score_threshold = 0.6
 
     async def calibrate(self, text: str, multimodal: MultiModalAnalysis) -> Dict:
+        text_lower = text.lower()
         dharma = self.lake.calculate_dharma_alignment(text)
         safety = self.lake.check_safety(text)
+        safety_keywords = (
+            self.lake.SAFETY_CONSTRAINTS["high_risk_patterns"]
+            + self.lake.SAFETY_CONSTRAINTS["immediate_escalation"]
+        )
+        keyword_flag = any(keyword in text_lower for keyword in safety_keywords)
+        ethics_passed = not (keyword_flag and multimodal.combined_risk > 0.7)
 
         if multimodal.combined_risk > 0.7:
             tone = "compassionate"
@@ -170,7 +185,7 @@ class EthicalCalibrationKernel:
             "requires_human": safety["requires_human"],
             "emotional_tone": tone,
             "intervention": safety["intervention_type"],
-            "ethics_passed": True,
+            "ethics_passed": ethics_passed,
         }
 
 

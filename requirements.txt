@@ -9,3 +9,8 @@ sqlalchemy==2.0.30
 pysqlcipher3==1.0.3; platform_system != "Windows"
 sqlcipher3==0.6.2; platform_system == "Windows"
 slowapi==0.1.9
+bleach==6.0
+redis==5.0
+prometheus-client==0.20
+whisper-openai
+librosa==0.10.1
