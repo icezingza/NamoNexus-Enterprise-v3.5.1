@@ -1,0 +1,35 @@
+name: Docker Evidence Day 4
+on:
+  push:
+    tags: [ "v*.*.*" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build image
+        run: |
+          docker build -t namonexus:${{ github.ref_name }} .
+          docker run -d -p 8080:8080 --env-file .env.example \
+            -e NAMO_NEXUS_TOKEN=dummy_token \
+            -e DB_CIPHER_KEY=dummy_token \
+            -e ENVIRONMENT=development \
+            -e HOST=localhost \
+            namonexus:${{ github.ref_name }}
+          sleep 5
+          curl -f http://localhost:8080/health > health.log
+          curl -f http://localhost:8080/triage \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer dummy_token" \
+            -d '{"user_id":"u1","message":"GA test"}' > triage.log
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: day4-evidence
+          path: |
+            health.log
+            triage.log
