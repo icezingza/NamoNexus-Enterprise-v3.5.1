@@ -3,6 +3,13 @@ on:
   push:
     tags: [ "v*.*.*" ]
   workflow_dispatch:
+    inputs:
+      NAMO_NEXUS_TOKEN:
+        description: "Token for API auth during evidence run"
+        required: true
+      DB_CIPHER_KEY:
+        description: "SQLCipher key for audit/main DB during evidence run"
+        required: true
 
 jobs:
   build:
@@ -12,11 +19,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build image
+        env:
+          NAMO_NEXUS_TOKEN: ${{ github.event.inputs.NAMO_NEXUS_TOKEN || 'dummy_token' }}
+          DB_CIPHER_KEY: ${{ github.event.inputs.DB_CIPHER_KEY || 'dummy_token' }}
         run: |
+          echo "::add-mask::$NAMO_NEXUS_TOKEN"
+          echo "::add-mask::$DB_CIPHER_KEY"
           docker build -t namonexus:${{ github.ref_name }} .
           docker run -d -p 8080:8080 --env-file .env.example \
-            -e NAMO_NEXUS_TOKEN=dummy_token \
-            -e DB_CIPHER_KEY=dummy_token \
+            -e NAMO_NEXUS_TOKEN="$NAMO_NEXUS_TOKEN" \
+            -e DB_CIPHER_KEY="$DB_CIPHER_KEY" \
             -e ENVIRONMENT=development \
             -e HOST=localhost \
             namonexus:${{ github.ref_name }}
@@ -24,7 +36,7 @@ jobs:
           curl -f http://localhost:8080/health > health.log
           curl -f http://localhost:8080/triage \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer dummy_token" \
+            -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
             -d '{"user_id":"u1","message":"GA test"}' > triage.log
       - name: Upload evidence
         uses: actions/upload-artifact@v4
