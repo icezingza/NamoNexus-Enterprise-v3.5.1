@@ -533,6 +533,11 @@ async def metrics_endpoint():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+@app.get("/stats", dependencies=[Depends(verify_token)])
+async def stats_endpoint():
+    return engine.grid.get_stats()
+
+
 def _remove_route(path: str) -> None:
     app.router.routes = [
         route for route in app.router.routes if getattr(route, "path", None) != path
@@ -543,6 +548,7 @@ app.remove_route = _remove_route  # type: ignore[attr-defined]
 
 if os.getenv("ENVIRONMENT") == "production":
     app.remove_route("/metrics")
+    app.remove_route("/stats")
 
 
 @app.get("/harmonic-console", dependencies=[Depends(verify_token)])
