@@ -42,6 +42,7 @@ jobs:
           NAMO_NEXUS_TOKEN: ${{ github.event.inputs.NAMO_NEXUS_TOKEN || 'dummy_token' }}
         run: |
           curl -f -X POST http://localhost:8080/triage/audio \
+          curl -f -i -X POST http://localhost:8080/triage/audio \
             -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
             -F "audio_file=@namo_demo_case_c_moderate_complaint.mp3" \
             -F "user_id=test_user" > triage_audio.log
@@ -50,9 +51,12 @@ jobs:
           NAMO_NEXUS_TOKEN: ${{ github.event.inputs.NAMO_NEXUS_TOKEN || 'dummy_token' }}
         run: |
           curl -f http://localhost:8080/triage \
+          curl -f -i http://localhost:8080/triage \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
             -d '{"user_id":"test_user","message":"test"}' > triage.log
+      - name: Verify Evidence Logs
+        run: python verify_evidence.py
       - name: Upload evidence
         uses: actions/upload-artifact@v4
         with:
