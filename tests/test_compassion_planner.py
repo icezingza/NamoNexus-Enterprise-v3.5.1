@@ -1,5 +1,11 @@
 import pytest
+
 from namo_nexus.affect.compassion_planner import CompassionPlanner
+from src.i18n import load_locale
+
+
+LOCALE = load_locale("th")
+COMPASSION = LOCALE["namo_nexus"]["compassion_planner"]
 
 def test_compassion_planner_safe_template():
     planner = CompassionPlanner()
@@ -19,7 +25,7 @@ def test_compassion_planner_high_distress():
         emotion={"distress_level": "high"},
         safe_template=None
     )
-    expected = "ขอบคุณที่ไว้ใจเล่าให้ฟังนะ ตอนนี้ขอชวนค่อย ๆ หายใจลึก ๆ แล้วรับรู้ว่าความรู้สึกนี้ไม่ได้อยู่ถาวร เราลองคุยกันทีละขั้นได้เสมอ"
+    expected = f"{COMPASSION['base']} {COMPASSION['high_distress']} {COMPASSION['closing']}"
     assert result == expected
 
 def test_compassion_planner_low_distress():
@@ -30,5 +36,5 @@ def test_compassion_planner_low_distress():
         emotion={"distress_level": "low"},
         safe_template=None
     )
-    expected = "ขอบคุณที่ไว้ใจเล่าให้ฟังนะ เราลองคุยกันทีละขั้นได้เสมอ"
+    expected = f"{COMPASSION['base']} {COMPASSION['closing']}"
     assert result == expected

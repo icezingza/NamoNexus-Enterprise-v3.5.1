@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import asyncio
+import functools
 import logging
 import math
 import os
@@ -282,21 +281,22 @@ rate_limit_per_minute = int(round(rate_limit_refill * 60))
     response_model=TriageResponse,
     dependencies=[
         Depends(verify_token),
-        Depends(limiter.limit("10/minute")),
     ],
 )
+@limiter.limit("10/minute")
 async def triage_endpoint(
-    request: TriageRequest,
+    request: Request,
+    triage_request: TriageRequest,
     background_tasks: BackgroundTasks,
 ):
-    cleaned_message = sanitize_text(request.message)
-    voice_features = request.voice_features
+    cleaned_message = sanitize_text(triage_request.message)
+    voice_features = triage_request.voice_features
     if hasattr(voice_features, "model_dump"):
         voice_features = voice_features.model_dump()
-    facial_features = request.facial_features
+    facial_features = triage_request.facial_features
     if hasattr(facial_features, "model_dump"):
         facial_features = facial_features.model_dump()
-    sanitized_request = request.model_copy(
+    sanitized_request = triage_request.model_copy(
         update={
             "message": cleaned_message,
             "voice_features": voice_features,
@@ -311,15 +311,19 @@ async def triage_endpoint(
     response_model=TriageResponse,
     dependencies=[
         Depends(verify_token),
-        Depends(limiter.limit("30/minute")),
     ],
 )
+@limiter.limit("30/minute")
 async def interact_alias(
-    request: InteractRequest,
+    request: Request,
+    interact_request: InteractRequest,
     background_tasks: BackgroundTasks,
 ):
-    triage_request = TriageRequest(user_id=request.user_id, message=request.message)
-    return await triage_endpoint(triage_request, background_tasks)
+    triage_request = TriageRequest(
+        user_id=interact_request.user_id,
+        message=interact_request.message,
+    )
+    return await triage_endpoint(request, triage_request, background_tasks)
 
 
 @app.post(
@@ -327,19 +331,20 @@ async def interact_alias(
     response_model=TriageResponse,
     dependencies=[
         Depends(verify_token),
-        Depends(limiter.limit("30/minute")),
     ],
 )
+@limiter.limit("30/minute")
 async def reflect_alias(
-    request: ReflectRequest,
+    request: Request,
+    reflect_request: ReflectRequest,
     background_tasks: BackgroundTasks,
 ):
     triage_request = TriageRequest(
-        user_id=request.user_id,
-        message=request.message,
-        session_id=request.session_id,
+        user_id=reflect_request.user_id,
+        message=reflect_request.message,
+        session_id=reflect_request.session_id,
     )
-    return await triage_endpoint(triage_request, background_tasks)
+    return await triage_endpoint(request, triage_request, background_tasks)
 
 
 # Audio triage configuration
@@ -355,10 +360,11 @@ MAX_AUDIO_SIZE = 5 * 1024 * 1024  # 5MB
     response_model=TriageResponse,
     dependencies=[
         Depends(verify_token),
-        Depends(limiter.limit("10/minute")),
     ],
 )
+@limiter.limit("10/minute")
 async def triage_audio_endpoint(
+    request: Request,
     background_tasks: BackgroundTasks,
     audio: UploadFile | None = File(None, description="Audio file (WAV, MP3)"),
     audio_file: UploadFile | None = File(None, description="Audio file (WAV, MP3)"),
@@ -430,7 +436,7 @@ async def triage_audio_endpoint(
     cleaned_message = sanitize_text(final_message)
     
     # Build triage request with extracted voice features
-    request = TriageRequest(
+    triage_request = TriageRequest(
         message=cleaned_message,
         user_id=user_id,
         session_id=session_id,
@@ -439,7 +445,7 @@ async def triage_audio_endpoint(
     )
     
     # Process triage
-    response = await engine.process_triage(request, background_tasks)
+    response = await engine.process_triage(triage_request, background_tasks)
     
     # Add transcription to response if available
     if voice_result.transcription:

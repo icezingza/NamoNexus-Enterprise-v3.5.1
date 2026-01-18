@@ -4,7 +4,10 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, event, pool
+
+load_dotenv()
 
 from src.config import config as app_config
 from src.database.db import Base
@@ -43,11 +46,19 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     config.set_main_option("sqlalchemy.url", _get_db_url())
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    cipher_key = os.getenv("DB_CIPHER_KEY", "")
+    connectable = create_engine(
+        config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
     )
+    if cipher_key:
+        escaped_key = cipher_key.replace("'", "''")
+
+        @event.listens_for(connectable, "connect")
+        def do_connect(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute(f"PRAGMA key = '{escaped_key}'")
+            cursor.close()
 
     with connectable.connect() as connection:
         context.configure(

@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from src.allowed_services import ensure_service_allowed
 
 
 def deploy(project_id: str, region: str, service_name: str = "namo-nexus") -> None:
+    ensure_service_allowed("gcp")
     image = f"gcr.io/{project_id}/{service_name}"
     subprocess.run(["gcloud", "builds", "submit", "--tag", image, str(ROOT)], check=True)
     subprocess.run(

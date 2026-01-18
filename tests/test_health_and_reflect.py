@@ -2,16 +2,19 @@
 import os
 
 from fastapi.testclient import TestClient
+import pytest
 
 from src.i18n import load_locale
 
-os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
+TOKEN = os.getenv("NAMO_NEXUS_TOKEN")
+if not TOKEN:
+    pytest.skip("NAMO_NEXUS_TOKEN must be set for API tests.", allow_module_level=True)
 
 from main import app
 
 
 client = TestClient(app)
-AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
+AUTH_HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 LOCALE = load_locale("th")
 
 

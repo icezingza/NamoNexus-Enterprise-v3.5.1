@@ -13,6 +13,7 @@ import zipfile
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from src.allowed_services import ensure_service_allowed
 
 DEFAULT_MODELS = ["claude-opus-4.5", "gemini-3-pro", "gpt-oss-120b"]
 DEFAULT_PROMPTS_FILE = "prompts.json"
@@ -86,6 +87,7 @@ def run_geminicli_batch(
     output_file: Path,
 ) -> Optional[Path]:
     log("Running GeminiCLI batch...")
+    ensure_service_allowed("gemini")
     if not command_exists(gemini_cli):
         log(f"GeminiCLI not found in PATH ({gemini_cli}). Skipping.")
         return None
@@ -144,6 +146,7 @@ def run_ai_analysis(
     gemini_output: Optional[Path],
 ) -> Optional[Path]:
     log("Running AI analysis...")
+    ensure_service_allowed("gemini")
     if not command_exists(gemini_cli):
         log(f"GeminiCLI not found in PATH ({gemini_cli}). Skipping.")
         return None

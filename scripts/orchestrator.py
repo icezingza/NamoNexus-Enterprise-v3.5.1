@@ -2,8 +2,14 @@
 import subprocess
 import os
 import json
+import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from src.allowed_services import ensure_service_allowed
 # ===== CONFIGURATION =====
 GEMINI_CLI_PATH = r"d:\Users\NamoNexus Enterprise v3.5.1\gemini-cli-source\packages\cli"
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -37,11 +43,12 @@ If NO, provide specific feedback on what needs to be fixed.
 def run_gemini_source(prompt):
     """Runs Gemini CLI from source with the given prompt."""
     try:
+        ensure_service_allowed("gemini")
         # Use npm run start -- prompt "..." to call the CLI from source
         # We need to be in the CLI directory for this to work relative dependencies
         cmd = ["npm", "run", "start", "--", "prompt", prompt]
 
-        print(f"🤖 Calling Gemini (Source)...")
+        print("Calling Gemini (Source)...")
         result = subprocess.run(
             cmd,
             cwd=GEMINI_CLI_PATH,
@@ -52,26 +59,26 @@ def run_gemini_source(prompt):
         )
 
         if result.returncode != 0:
-            print(f"❌ Error running Gemini CLI: {result.stderr}")
+            print(f"Error running Gemini CLI: {result.stderr}")
             return None
 
         # Extract the response (simple parsing, might need adjustment based on CLI output format)
         return result.stdout.strip()
     except Exception as e:
-        print(f"❌ Exception: {e}")
+        print(f"Exception: {e}")
         return None
 
 
 def reasoning_step(user_input):
-    print("\n🔹 [Step 1] Reasoning Agent: Analyzing problem...")
+    print("\n[Step 1] Reasoning Agent: Analyzing problem...")
     prompt = PROMPT_REASONING.format(input=user_input)
     response = run_gemini_source(prompt)
-    print(f"📋 Strategy Proposed:\n{response}\n")
+    print(f"Strategy Proposed:\n{response}\n")
     return response
 
 
 def coding_step(strategy):
-    print("\n🔹 [Step 2] Coder Agent: Generating code...")
+    print("\n[Step 2] Coder Agent: Generating code...")
     prompt = PROMPT_CODER.format(strategy=strategy)
     response = run_gemini_source(prompt)
 
@@ -82,7 +89,7 @@ def coding_step(strategy):
     elif "```" in response:
         code = response.split("```")[1].split("```")[0].strip()
 
-    print(f"💻 Code Generated:\n{code}\n")
+    print(f"Code Generated:\n{code}\n")
     return code
 
 
@@ -90,19 +97,19 @@ def refinement_loop(strategy, initial_code):
     current_code = initial_code
 
     for i in range(MAX_REFINEMENT_LOOPS):
-        print(f"\n🔄 [Step 3.{i + 1}] Refinement Loop...")
+        print(f"\n[Step 3.{i + 1}] Refinement Loop...")
 
         # Review
         review_prompt = PROMPT_REVIEW.format(strategy=strategy, code=current_code)
         review_result = run_gemini_source(review_prompt)
-        print(f"🧐 Review Result: {review_result}")
+        print(f"Review Result: {review_result}")
 
         if "APPROVED" in review_result:
-            print("✅ Code Approved by Reasoning Agent.")
+            print("Code approved by reasoning agent.")
             return current_code
 
         # Refine (Simulated Coder fixing based on feedback)
-        print("🔧 Coder Agent: Fixing code based on feedback...")
+        print("Coder agent: fixing code based on feedback...")
         fix_prompt = f"""
         You are the Coder Agent. Fix the following code based on the feedback.
         Original Strategy: {strategy}
@@ -126,9 +133,9 @@ def refinement_loop(strategy, initial_code):
             except:
                 pass  # use raw if split fails
 
-        print(f"🛠️  Fixed Code:\n{current_code}\n")
+        print(f"Fixed Code:\n{current_code}\n")
 
-    print("⚠️ Max loops reached. Using last version.")
+    print("Max loops reached. Using last version.")
     return current_code
 
 
@@ -136,18 +143,18 @@ def save_code(code, filename="generated_fix.py"):
     filepath = PROJECT_ROOT / filename
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(code)
-    print(f"\n💾 Saved code to: {filepath}")
+    print(f"\nSaved code to: {filepath}")
     return filepath
 
 
 def main():
-    print("🚀 Starting Multi-Agent Orchestrator (Gemini Source Powered)")
+    print("Starting Multi-Agent Orchestrator (Gemini Source Powered)")
 
     # 1. Get Task
     try:
         user_task = input("Enter the task/bug description: ")
         if not user_task:
-            print("❌ No task provided.")
+            print("No task provided.")
             return
 
         # 2. Reasoning
@@ -165,10 +172,10 @@ def main():
 
         # 5. Output
         save_code(final_code)
-        print("\n✨ Workflow Complete!")
+        print("\nWorkflow Complete!")
 
     except KeyboardInterrupt:
-        print("\n🛑 Operation cancelled.")
+        print("\nOperation cancelled.")
 
 
 if __name__ == "__main__":

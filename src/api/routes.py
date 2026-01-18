@@ -19,13 +19,13 @@ router = APIRouter()
 
 @router.post("/interact")
 @limiter.limit("10/minute")
-async def interact(request: Request, user_msg: UserMessage, db: Session = Depends(get_db)) -> Dict[str, Any]:
-    return await _handle_interaction(user_msg, db)
+def interact(request: Request, user_msg: UserMessage, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    return _handle_interaction(user_msg, db)
 
 
 @router.post("/reflect")
 @limiter.limit("10/minute")
-async def reflect(request: Request, user_msg: UserMessage, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def reflect(request: Request, user_msg: UserMessage, db: Session = Depends(get_db)) -> Dict[str, Any]:
     user_id = user_msg.user_id or "anonymous"
     message = user_msg.message or ""
 
@@ -86,10 +86,10 @@ async def reflect(request: Request, user_msg: UserMessage, db: Session = Depends
         logger.info("Reflect refusal issued", extra={"user_id": user_id, "tone": emotion})
         return response_payload
 
-    return await _handle_interaction(user_msg, db)
+    return _handle_interaction(user_msg, db)
 
 
-async def _handle_interaction(user_msg: UserMessage, db: Session) -> Dict[str, Any]:
+def _handle_interaction(user_msg: UserMessage, db: Session) -> Dict[str, Any]:
     user_id = user_msg.user_id or "anonymous"
     message = user_msg.message or ""
 

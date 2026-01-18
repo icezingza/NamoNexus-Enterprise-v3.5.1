@@ -9,15 +9,15 @@ RESET = "\033[0m"
 def check_file(path, required_keywords):
     """Verify file existence and presence of required logic components."""
     if not os.path.exists(path):
-        return False, "File Missing ❌"
+        return False, "File Missing"
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
             missing = [k for k in required_keywords if k not in content]
             if missing:
-                return False, f"Missing Code: {missing} ⚠️"
-            return True, "OK ✅"
+                return False, f"Missing Code: {missing}"
+            return True, "OK"
     except Exception as e:
         return False, f"Error: {e}"
 
@@ -40,7 +40,7 @@ checklist = {
 }
 
 print("\n" + "=" * 60)
-print("🔍  NAMONEXUS: SYSTEM INTEGRITY AUDIT")
+print("NAMONEXUS: SYSTEM INTEGRITY AUDIT")
 print("=" * 60)
 
 score = 0
@@ -56,9 +56,9 @@ for file_path, keywords in checklist.items():
 
 print("-" * 60)
 if score >= total:
-    print(f"{GREEN}✨ SYSTEM STATUS: OPERATIONAL ✨{RESET}")
+    print(f"{GREEN}SYSTEM STATUS: OPERATIONAL{RESET}")
     print("   All core components verified.")
 else:
-    print(f"{RED}⚠️ SYSTEM STATUS: INCOMPLETE{RESET}")
+    print(f"{RED}SYSTEM STATUS: INCOMPLETE{RESET}")
     print(f"   Score: {score}/{total}")
 print("=" * 60 + "\n")

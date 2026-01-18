@@ -6,12 +6,18 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 import requests
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from src.allowed_services import ensure_url_allowed
 
 SECONDS_PER_YEAR = 365 * 24 * 60 * 60
 
@@ -92,6 +98,7 @@ def percentiles(values: List[float]) -> Dict[str, float]:
 def run_request(url: str, payload: Dict[str, Any], timeout: float) -> Tuple[float, int, Dict[str, Any], str]:
     start = time.perf_counter()
     try:
+        ensure_url_allowed(url)
         response = requests.post(url, json=payload, timeout=timeout)
         duration = time.perf_counter() - start
         try:
@@ -225,6 +232,7 @@ def wait_for_server(base_url: str, timeout: float) -> bool:
     health_url = f"{base_url}/healthz"
     while time.time() < deadline:
         try:
+            ensure_url_allowed(health_url)
             response = requests.get(health_url, timeout=1.0)
             if response.status_code == 200:
                 return True

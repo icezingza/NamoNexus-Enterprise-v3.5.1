@@ -4,6 +4,7 @@ from datetime import datetime
 
 import requests
 
+from src.allowed_services import ensure_url_allowed
 from src.i18n import load_locale
 
 # Configuration
@@ -12,6 +13,7 @@ TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "")
 if not TOKEN:
     raise RuntimeError("NAMO_NEXUS_TOKEN is required for stress tests.")
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+TRIAGE_URL = f"{BASE_URL}/triage"
 
 LOCALE = load_locale("th")
 PROMPTS = LOCALE["tests"]["stress"]["prompts"]
@@ -21,6 +23,7 @@ TONE_VIOLATION_KEYWORDS = LOCALE["tests"]["stress"]["tone_violation_keywords"]
 
 def run_stress_test():
     results = []
+    ensure_url_allowed(TRIAGE_URL)
     print(f"Starting Stress Test with {len(PROMPTS)} prompts...")
 
     for i, message in enumerate(PROMPTS):
@@ -33,7 +36,7 @@ def run_stress_test():
         try:
             start_time = time.time()
             response = requests.post(
-                f"{BASE_URL}/triage", json=payload, headers=HEADERS
+                TRIAGE_URL, json=payload, headers=HEADERS
             )
             latency = (time.time() - start_time) * 1000
 

@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 import requests
 from src.i18n import load_locale
+from src.allowed_services import ensure_url_allowed
 
 try:
     from tabulate import tabulate
@@ -23,12 +24,13 @@ if not DB_PATH.is_absolute():
     DB_PATH = (ROOT_DIR / DB_PATH).resolve()
 
 LOCALE = load_locale("th")
+ensure_url_allowed(f"{BASE_URL}/health")
 
 AUTH_TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "")
 if not AUTH_TOKEN:
     raise RuntimeError("NAMO_NEXUS_TOKEN is required for live API tests.")
-API_KEY = os.getenv("NAMO_NEXUS_API_KEY", "local-smoke")
-RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", "30"))
+API_KEY = os.getenv("NAMO_NEXUS_API_KEY", "")
+RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", "80"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "3"))
 BACKGROUND_THRESHOLD_MS = float(os.getenv("BACKGROUND_THRESHOLD_MS", "200"))
 DHAMMIC_TEST_MESSAGE = os.getenv("DHAMMIC_TEST_MESSAGE") or LOCALE["tests"]["messages"]["dhammic_test"]

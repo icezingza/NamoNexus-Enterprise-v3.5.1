@@ -1,9 +1,16 @@
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from src.allowed_services import ensure_url_allowed
 
 class ConversationalAgent:
     """Client wrapper for the /triage API with response metadata."""
@@ -18,6 +25,7 @@ class ConversationalAgent:
         self.timeout = timeout
         self.chat_history: List[Dict[str, Any]] = []
         self._session = requests.Session()
+        ensure_url_allowed(self.api_url)
         resolved_token = token or os.getenv("NAMO_NEXUS_TOKEN")
         if not resolved_token:
             raise ValueError("NAMO_NEXUS_TOKEN is required for authenticated requests.")

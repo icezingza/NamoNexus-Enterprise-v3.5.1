@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.audit_log import write_log
+
+logger = logging.getLogger(__name__)
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
@@ -14,11 +17,16 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._session_factory = session_factory
 
     async def dispatch(self, request, call_next):
-        if request.url.path in {"/health", "/healthz", "/readyz", "/metrics"}:
+        # Skip audit for health and metrics endpoints
+        if request.url.path in {"/health", "/healthz", "/readyz", "/metrics", "/openapi.json"}:
             return await call_next(request)
 
         method = request.method
         endpoint = request.url.path
+
+        # Skip audit if session_factory is None (disabled for Phase 1 recovery)
+        if self._session_factory is None:
+            return await call_next(request)
 
         user_id = "anonymous"
         risk = "unknown"
@@ -45,18 +53,21 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        db_session = self._session_factory()
         try:
-            write_log(
-                db_session,
-                user_id,
-                endpoint,
-                method,
-                payload,
-                ip_addr=request.client.host if request.client else "",
-                user_agent=request.headers.get("user-agent", ""),
-            )
-        finally:
-            db_session.close()
+            db_session = self._session_factory()
+            try:
+                write_log(
+                    db_session,
+                    user_id,
+                    endpoint,
+                    method,
+                    payload,
+                    ip_addr=request.client.host if request.client else "",
+                    user_agent=request.headers.get("user-agent", ""),
+                )
+            finally:
+                db_session.close()
+        except Exception:
+            logger.exception("audit_log_failed")
 
         return response

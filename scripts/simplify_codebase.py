@@ -38,43 +38,43 @@ def simplify_codebase():
     ]
 
     # Step 1: Archive (your approach)
-    print("\n🧹 Archiving research modules...")
+    print("\nArchiving research modules...")
     for module in archive_modules:
         src = base / module
         if src.exists():
             dst = research / module
             dst.parent.mkdir(parents=True, exist_ok=True)
-            print(f"  ✓ {src} -> {dst}")
+            print(f"  OK {src} -> {dst}")
             shutil.move(str(src), str(dst))
         else:
             print(f"  - {src} not found, skipping.")
 
     # Step 2: Delete unused
-    print("\n🗑️  Deleting unused files...")
+    print("\nDeleting unused files...")
     for file in ["api/dashboard.py", "api/monitoring.py"]:
         f = base / file
         if f.exists():
-            print(f"  ✓ {f}")
+            print(f"  OK {f}")
             f.unlink()
         else:
             print(f"  - {f} not found, skipping.")
 
     # STEP 3: VERIFY (my addition - 30 seconds)
-    print("\n✅ Verifying...")
+    print("\nVerifying...")
     try:
         # Assuming src.main is importable. Adjust path if needed.
         # Adding current dir to sys.path to ensure imports work
         sys.path.append(str(Path.cwd()))
         from src.main import app
 
-        print("  ✓ Imports OK")
+        print("  OK Imports")
     except Exception as e:
-        print(f"  ❌ ERROR: {e}")
+        print(f"  ERROR: {e}")
         print("  -> Rolling back...")
         subprocess.run(["git", "reset", "--hard", "backup-before-mvp"])
         return False
 
-    print("\n✅ SIMPLIFICATION COMPLETE!")
+    print("\nSIMPLIFICATION COMPLETE!")
     print("Next: git add -A && git commit -m '...'")
     return True
 

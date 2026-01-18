@@ -12,13 +12,15 @@ from fastapi.testclient import TestClient
 
 from src.i18n import load_locale
 
-os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
+TOKEN = os.getenv("NAMO_NEXUS_TOKEN")
+if not TOKEN:
+    pytest.skip("NAMO_NEXUS_TOKEN must be set for audio triage tests.", allow_module_level=True)
 os.environ.setdefault("ENABLE_TRANSCRIPTION", "false")  # Disable Whisper for tests
 
 from main import app
 
 client = TestClient(app)
-AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
+AUTH_HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 LOCALE = load_locale("th")
 
 

@@ -9,8 +9,15 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
-os.environ.setdefault("DB_CIPHER_KEY", "test-key-32-bytes-long-0123456")
+TOKEN = os.getenv("NAMO_NEXUS_TOKEN")
+CIPHER_KEY = os.getenv("DB_CIPHER_KEY")
+if not TOKEN or not CIPHER_KEY:
+    pytest.skip(
+        "NAMO_NEXUS_TOKEN and DB_CIPHER_KEY must be set in the environment.",
+        allow_module_level=True,
+    )
+os.environ["NAMO_NEXUS_TOKEN"] = TOKEN
+os.environ["DB_CIPHER_KEY"] = CIPHER_KEY
 _test_db_path = os.path.join(tempfile.gettempdir(), "namo_nexus_test_audit.db")
 if os.path.exists(_test_db_path):
     os.remove(_test_db_path)

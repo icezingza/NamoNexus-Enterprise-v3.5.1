@@ -2,71 +2,81 @@ import os
 import re
 import sys
 
-# Goal: scan for forbidden patterns in code - PRODUCTION VERSION
-# Only checks for ACTUAL security issues, not style/enterprise guidelines
-FORBIDDEN_PATTERNS = {
-    r'''(?i)(token|password|secret)\s*=\s*["\'][a-zA-Z0-9_\-+=/]{16,}["\']''': "CRITICAL: Found hardcoded credentials",
-    r'''api[_-]?key\s*=\s*["\'][a-zA-Z0-9_\-+=/]{20,}["\']''': "CRITICAL: Found hardcoded API key",
-    r'''private[_-]?key\s*=\s*["\']-----BEGIN''': "CRITICAL: Found hardcoded private key",
-    r'''root@\d+\.\d+\.\d+\.\d+''': "Found hardcoded IP/SSH credentials",
-    r'''DEBUG\s*=\s*True\s+#.*production''': "WARNING: DEBUG=True found in production context"
+# Folders to ignore (noise filter)
+IGNORE_DIRS = {
+    'node_modules', 'venv', '.venv', '.git', '__pycache__', 
+    'dist', 'build', '.pytest_cache', 'locales', 'assets'
 }
 
-# Ignore patterns - these directories/files are exempt
-IGNORE_DIRS = ['node_modules', 'venv', '.venv', '.git', '__pycache__', '.pytest_cache', 'investor_portal']
-IGNORE_FILES = ['audit_guard.py', '.env', '.env.example', 'requirements.txt', 'README.md', 'LICENSE']
-IGNORE_PATTERNS = [r'test.*\.py$', r'.*_test\.py$', r'debug_.*\.py$', r'generate_.*\.py$', r'validate_.*\.py$']
+# Files to ignore
+IGNORE_FILES = {
+    'audit_guard.py', '.env', 'package-lock.json', 'yarn.lock', 
+    'requirements.txt', 'README.md', '.gitignore'
+}
+
+# Critical patterns: must not appear
+CRITICAL_PATTERNS = {
+    r'token\s*=\s*["\'][a-zA-Z0-9\-\._]{20,}["\']': "CRITICAL: Hardcoded token found",
+    r'key\s*=\s*["\'][a-zA-Z0-9\-\._]{20,}["\']': "CRITICAL: Hardcoded API key found",
+    r'password\s*=\s*["\'][^"\']+["\']': "CRITICAL: Hardcoded password found",
+    r'Authorization:\s*Bearer\s+[a-zA-Z0-9\-\._]+': "CRITICAL: Hardcoded bearer token found"
+}
 
 def scan_project(directory="."):
-    print(f"🛡️  CODEX GUARD: Scanning {os.path.abspath(directory)}...")
-    print("=" * 60)
+    print(f"CODEX GUARD v2: Scanning {os.path.abspath(directory)}...")
+    print("   (Skipping node_modules, venv, and authorized assets...)")
+    
     issues_found = False
-    scanned_files = 0
+    critical_found = False
 
-    for root, _, files in os.walk(directory):
-        # Skip ignored directories
-        if any(ignored in root for ignored in IGNORE_DIRS):
-            continue
+    for root, dirs, files in os.walk(directory):
+        # Filter Directories
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
 
         for file in files:
-            # Skip non-Python files and explicitly ignored files
-            if not file.endswith(".py"):
-                continue
-            if file in IGNORE_FILES:
-                continue
-            
-            # Skip files matching ignore patterns
-            if any(re.match(pattern, file) for pattern in IGNORE_PATTERNS):
+            if file in IGNORE_FILES or not file.endswith(('.py', '.js', '.ts', '.env')):
                 continue
 
             filepath = os.path.join(root, file)
-            scanned_files += 1
-            
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    content = f.readlines()
-                    
-                for i, line in enumerate(content, 1):
-                    for pattern, message in FORBIDDEN_PATTERNS.items():
-                        if re.search(pattern, line):
-                            print(f"\n📂 {filepath}")
-                            print(f"   Line {i}: {line.strip()[:80]}")
-                            print(f"   🚨 {message}")
-                            issues_found = True
-            except Exception as e:
-                # Silent skip for files that can't be read
-                continue
+            relative_path = os.path.relpath(filepath, directory)
 
-    print("\n" + "=" * 60)
-    print(f"📊 Scanned {scanned_files} Python files")
-    
-    if issues_found:
-        print("\n🛑 AUDIT FAILED: Critical security issues found!")
-        print("   🔒 DO NOT push to GitHub yet.")
+            try:
+                with open(filepath, "r", encoding="utf-8", errors='ignore') as f:
+                    content = f.read()
+                    lines = content.splitlines()
+                    
+                for i, line in enumerate(lines):
+                    # 1. Check Critical Security (Always Active)
+                    for pattern, message in CRITICAL_PATTERNS.items():
+                        if re.search(pattern, line):
+                            # Skip environment variable assignments
+                            if "os.getenv" in line or "os.environ" in line:
+                                continue
+                            print(f"\nFile: {relative_path}:{i+1}")
+                            print(f"   Line: {line.strip()[:100]}...")
+                            print(f"   {message}")
+                            critical_found = True
+                            issues_found = True
+
+                    # 2. Check print() statements (Only in 'src/', allowed in scripts/tests)
+                    if "print(" in line:
+                        # Allow print in tests, scripts, or inside 'if __name__ == "__main__":'
+                        if (filepath.startswith(os.path.join(directory, 'src')) and 
+                            "test" not in filepath and 
+                            "if __name__" not in content):
+                            print(f"\nFile: {relative_path}:{i+1}")
+                            print("   Warning: Found 'print()' in production code (use logger)")
+                            # This is just a warning, doesn't fail the build
+                            
+            except Exception as e:
+                pass # Skip files that can't be read
+
+    print("-" * 50)
+    if critical_found:
+        print("AUDIT FAILED: Critical security risks found.")
         sys.exit(1)
     else:
-        print("\n✅ AUDIT PASSED: No hardcoded secrets found.")
-        print("   🚀 Safe to proceed with Git push.")
+        print("AUDIT PASSED: System secure and ready for deployment.")
         sys.exit(0)
 
 if __name__ == "__main__":
