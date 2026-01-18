@@ -12,7 +12,7 @@ IGNORE_DIRS = {
 IGNORE_FILES = {
     'audit_guard.py', '.env', 'package-lock.json', 'yarn.lock', 
     'requirements.txt', 'README.md', '.gitignore'
-}r
+}
 
 # Critical patterns: must not appear
 CRITICAL_PATTERNS = {
