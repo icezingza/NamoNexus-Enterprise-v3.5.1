@@ -7,7 +7,7 @@
 
 echo "🚀 Starting API Server for Load Testing..."
 # Start uvicorn in background
-uvicorn main:app --host 0.0.0.0 --port 8000 --log-level warning &
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4 --log-level warning &
 API_PID=$!
 
 # Ensure API server is killed when script exits (even if Ctrl+C)
@@ -17,12 +17,12 @@ trap "echo '🛑 Stopping API Server (PID: $API_PID)...'; kill $API_PID" EXIT
 echo "⏳ Waiting for API to initialize (5s)..."
 sleep 5
 
-echo "🦗 Running Locust Load Test (Users: 50, Rate: 5/s, Duration: 30s)..."
+echo "🦗 Running Locust Load Test (Users: 500, Rate: 50/s, Duration: 60s)..."
 # Run Locust
 locust -f locustfile.py \
     --headless \
-    -u 50 -r 5 \
-    --run-time 30s \
+    -u 500 -r 50 \
+    --run-time 60s \
     --host http://localhost:8000 \
     --csv=load_test_results
 
