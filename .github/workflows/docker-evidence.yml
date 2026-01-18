@@ -33,7 +33,7 @@ jobs:
             -e HOST=localhost \
             namonexus:${{ github.ref_name }}
           sleep 5
-          curl -f http://localhost:8080/health > health.log
+          curl -f -i http://localhost:8080/health > health.log
       - name: Generate dummy audio file for testing
         run: |
           echo "dummy audio content" > namo_demo_case_c_moderate_complaint.mp3

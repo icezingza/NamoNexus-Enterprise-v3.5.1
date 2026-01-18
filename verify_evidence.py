@@ -21,7 +21,7 @@ def verify_log(file_path):
 
 if __name__ == "__main__":
     # รายชื่อไฟล์ Log ที่ต้องการตรวจสอบ
-    files_to_check = ["triage_audio.log", "triage.log"]
+    files_to_check = ["health.log", "triage_audio.log", "triage.log"]
     success = True
 
     for log_file in files_to_check:
