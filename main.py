@@ -93,6 +93,13 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc)},
+    )
+
 
 def _resolve_audit_db_path() -> str:
     db_url = os.getenv("DATABASE_URL", "")
@@ -123,23 +130,19 @@ except ImportError:
     except ImportError:
         _has_sqlcipher = False
 
-# Temporarily disable audit database to fix SQLCipher issues in Phase 1
-# audit_engine = get_secure_engine(
-#     db_path=_resolve_audit_db_path(),
-#     cipher_key=cipher_key,
-# )
-# if _has_sqlcipher and cipher_key:
-#     uvicorn_logger.info("Using SQLCipher encrypted database")
-# else:
-#     uvicorn_logger.info("Using standard SQLite (SQLCipher unavailable or no key)")
-# AuditSessionLocal = sessionmaker(bind=audit_engine, expire_on_commit=False)
-# AuditBase.metadata.create_all(bind=audit_engine)
-# ensure_retention_policy(audit_engine)
-# app.add_middleware(AuditMiddleware, session_factory=AuditSessionLocal)
-
-# Fallback: create a dummy audit engine that does nothing
-AuditSessionLocal = None
-uvicorn_logger.info("Audit database temporarily disabled for Phase 1 recovery")
+# Initialize audit database
+audit_engine = get_secure_engine(
+    db_path=_resolve_audit_db_path(),
+    cipher_key=cipher_key,
+)
+if _has_sqlcipher and cipher_key:
+    uvicorn_logger.info("Using SQLCipher encrypted database")
+else:
+    uvicorn_logger.info("Using standard SQLite (SQLCipher unavailable or no key)")
+AuditSessionLocal = sessionmaker(bind=audit_engine, expire_on_commit=False)
+AuditBase.metadata.create_all(bind=audit_engine)
+ensure_retention_policy(audit_engine)
+app.add_middleware(AuditMiddleware, session_factory=AuditSessionLocal)
 
 
 class NamoNexusEnterprise:
@@ -147,8 +150,7 @@ class NamoNexusEnterprise:
 
     def __init__(self, db_path: str, cache_backend=None) -> None:
         self.governor = HarmonicGovernor()
-        # Temporarily disable legacy GridIntelligence to fix SQLCipher issues
-        # self.grid = GridIntelligence(db_path, cache=cache_backend)
+        self.grid = GridIntelligence(db_path, cache=cache_backend)
 
     async def process_triage(
         self, request: TriageRequest, background_tasks: BackgroundTasks
@@ -188,7 +190,7 @@ class NamoNexusEnterprise:
             latency_ms=latency,
             session_id=session_id,
             human_handoff_required=human_required,
-            empathy_prompts=None  # Temporarily disabled: self.grid._generate_empathy_prompts(ethics["risk_level"])
+            empathy_prompts=self.grid._generate_empathy_prompts(ethics["risk_level"]) if human_required else None
         )
 
     def _generate_response(
@@ -231,34 +233,32 @@ class NamoNexusEnterprise:
         multimodal: MultiModalAnalysis,
         human_required: bool,
     ) -> None:
-        # Temporarily disabled: legacy GridIntelligence storage
-        # self.grid.store_sovereign(
-        #     {
-        #         "user_id": request.user_id,
-        #         "session_id": session_id,
-        #         "message": request.message,
-        #         "response": response,
-        #         "risk_level": ethics["risk_level"],
-        #         "dharma_score": ethics["dharma_score"],
-        #         "multimodal": {
-        #             "combined_risk": multimodal.combined_risk,
-        #             "confidence": multimodal.confidence,
-        #         },
-        #     }
-        # )
+        self.grid.store_sovereign(
+            {
+                "user_id": request.user_id,
+                "session_id": session_id,
+                "message": request.message,
+                "response": response,
+                "risk_level": ethics["risk_level"],
+                "dharma_score": ethics["dharma_score"],
+                "multimodal": {
+                    "combined_risk": multimodal.combined_risk,
+                    "confidence": multimodal.confidence,
+                },
+            }
+        )
 
-        # if human_required:
-        #     self.grid.create_crisis_alert(
-        #         {
-        #             "user_id": request.user_id,
-        #             "session_id": session_id,
-        #             "risk_level": ethics["risk_level"],
-        #         }
-        #     )
-        #     print(
-        #         f"Crisis alert: User {request.user_id} requires immediate human intervention"
-        #     )
-        pass
+        if human_required:
+            self.grid.create_crisis_alert(
+                {
+                    "user_id": request.user_id,
+                    "session_id": session_id,
+                    "risk_level": ethics["risk_level"],
+                }
+            )
+            logger.warning(
+                f"Crisis alert: User {request.user_id} requires immediate human intervention"
+            )
 
     @staticmethod
     def _generate_session_id() -> str:
@@ -533,23 +533,19 @@ async def healthz():
 
 @app.get("/ready")
 async def readiness_check():
-    # Temporarily disabled grid checks for Phase 1
-    # db_ready = False
-    # cache_ready = False
-    # try:
-    #     await asyncio.to_thread(engine.grid.db_pool.ping)
-    #     db_ready = True
-    # except Exception:
-    #     logger.exception("readiness_db_failed")
-    # try:
-    #     cache_ready = engine.grid.cache.ping()
-    # except Exception:
-    #     logger.exception("readiness_cache_failed")
-    # status = "ready" if db_ready and cache_ready else "degraded"
-    # return {"status": status, "db_ready": db_ready, "cache_ready": cache_ready}
-    
-    # Phase 1: Return simple ready status
-    return {"status": "ready", "phase": "1_recovery", "grid": "temporarily_disabled"}
+    db_ready = False
+    cache_ready = False
+    try:
+        await asyncio.to_thread(engine.grid.db_pool.ping)
+        db_ready = True
+    except Exception:
+        logger.exception("readiness_db_failed")
+    try:
+        cache_ready = engine.grid.cache.ping()
+    except Exception:
+        logger.exception("readiness_cache_failed")
+    status = "ready" if db_ready and cache_ready else "degraded"
+    return {"status": status, "db_ready": db_ready, "cache_ready": cache_ready}
 
 
 @app.get("/readyz")
@@ -564,9 +560,7 @@ async def metrics_endpoint():
 
 @app.get("/stats", dependencies=[Depends(verify_token)])
 async def stats_endpoint():
-    # Temporarily disabled for Phase 1
-    # return engine.grid.get_stats()
-    return {"status": "temporarily_disabled", "phase": "1_recovery"}
+    return engine.grid.get_stats()
 
 
 def _remove_route(path: str) -> None:
@@ -584,29 +578,25 @@ if os.getenv("ENVIRONMENT") == "production":
 
 @app.get("/harmonic-console", dependencies=[Depends(verify_token)])
 async def get_harmonic_console_global():
-    # Temporarily disabled for Phase 1
-    # metrics = await engine.grid.get_global_metrics_async()
-    # sessions = await engine.grid.get_recent_sessions_async()
-    # alerts = await engine.grid.get_all_alerts_async()
-    #
-    # return {
-    #     "metrics": metrics,
-    #     "recent_sessions": sessions,
-    #     "active_alerts": alerts,
-    # }
-    return {"status": "temporarily_disabled", "phase": "1_recovery", "message": "Grid intelligence functions disabled during Phase 1 critical fix"}
+    metrics = await engine.grid.get_global_metrics_async()
+    sessions = await engine.grid.get_recent_sessions_async()
+    alerts = await engine.grid.get_all_alerts_async()
+    
+    return {
+        "metrics": metrics,
+        "recent_sessions": sessions,
+        "active_alerts": alerts,
+    }
 
 
 @app.get("/harmonic-console/{session_id}", dependencies=[Depends(verify_token)])
 async def get_harmonic_console_session(session_id: str):
-    # Temporarily disabled for Phase 1
-    # history = await engine.grid.get_session_history_async(session_id)
-    # alerts = await engine.grid.get_alerts_async(session_id)
-    #
-    # return {
-    #     "session_id": session_id,
-    #     "conversation_history": history,
-    #     "crisis_alerts": alerts,
-    #     "empathy_guidance": alerts[0].get("prompts", []) if alerts else [],
-    # }
-    return {"status": "temporarily_disabled", "phase": "1_recovery", "session_id": session_id}
+    history = await engine.grid.get_session_history_async(session_id)
+    alerts = await engine.grid.get_alerts_async(session_id)
+    
+    return {
+        "session_id": session_id,
+        "conversation_history": history,
+        "crisis_alerts": alerts,
+        "empathy_guidance": alerts[0].get("prompts", []) if alerts else [],
+    }

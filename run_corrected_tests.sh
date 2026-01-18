@@ -2,22 +2,58 @@
 
 # NamoNexus 360-Degree Testing Suite (Corrected)
 
-set -e
+set -u
 
-echo "🧪 Starting NamoNexus 360-Degree Testing Suite"
-echo "================================================"
+REPORT_DIR="test_reports"
+TEST_ROOT="namonexus-360-testing"
+
+# Create reports directory
+mkdir -p "${REPORT_DIR}"
+
+echo "Starting NamoNexus 360-Degree Testing Suite"
+echo "==========================================="
 
 # Install dependencies required for the actual app + testing
-pip install pytest pytest-asyncio pytest-cov httpx fastapi requests
+if [ -f requirements.txt ]; then
+    python -m pip install -r requirements.txt
+else
+    echo "WARNING: requirements.txt not found; skipping base dependency install."
+fi
+python -m pip install pytest pytest-asyncio pytest-cov httpx fastapi requests psutil locust uvicorn
 
 # Set PYTHONPATH to root directory so tests can find core_engine.py, main.py, etc.
-export PYTHONPATH="${PYTHONPATH}:$(pwd)/../.."
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 
-echo "1️⃣ Unit Tests (Core Engine)..."
-pytest ../01-unit-tests/test_core_logic.py -v
+# Function to run test and ignore failure (so we can generate report at the end)
+run_test() {
+    local label="$1"
+    local path="$2"
+    local report="$3"
 
-echo "2️⃣ Integration Tests (Grid Intelligence)..."
-pytest ../02-integration-tests/test_grid_intelligence.py -v
+    if [ ! -d "${path}" ]; then
+        echo "SKIP: ${label} (missing ${path})"
+        return
+    fi
 
-echo "3️⃣ API Tests (FastAPI)..."
-pytest ../03-api-tests/test_api_fast.py -v
+    echo "${label}"
+    python -m pytest "${path}" -v --junitxml="${REPORT_DIR}/${report}" || echo "WARNING: ${label} failed, continuing..."
+}
+
+run_test "1 Unit Tests (Core Engine)" "${TEST_ROOT}/01-unit-tests" "01_unit.xml"
+run_test "2 Integration Tests (Grid Intelligence)" "${TEST_ROOT}/02-integration-tests" "02_integration.xml"
+run_test "3 API Tests (FastAPI)" "${TEST_ROOT}/03-api-tests" "03_api.xml"
+run_test "4 Security Tests" "${TEST_ROOT}/04-security-tests" "04_security.xml"
+run_test "5 Performance Tests" "${TEST_ROOT}/05-performance-tests" "05_performance.xml"
+run_test "6 Failover Tests" "${TEST_ROOT}/07-failover-tests" "06_failover.xml"
+run_test "7 Compliance Tests" "${TEST_ROOT}/08-compliance-tests" "07_compliance.xml"
+
+echo "Load Test Check (Locust)..."
+if command -v locust &> /dev/null; then
+    echo "NOTE: Load tests require the API server to be running separately on port 8000."
+    echo "Run manually: ./run_load_test.sh"
+else
+    echo "INFO: Locust not installed. Skipping load test check."
+fi
+
+echo "Generating Consolidated Report..."
+python generate_summary_report.py

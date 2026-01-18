@@ -87,8 +87,8 @@ class DatabaseConnectionPool:
                 timeout=timeout,
             )
             cursor = conn.cursor()
-            # Use parameter binding to prevent SQL injection.
-            cursor.execute("PRAGMA key = ?", (self.cipher_key,))
+            # SQLCipher does not accept bound parameters for PRAGMA key.
+            cursor.execute(f"PRAGMA key = '{self.cipher_key}'")
             cursor.execute("PRAGMA cipher = 'aes-256-cfb'")
             cursor.close()
         else:
