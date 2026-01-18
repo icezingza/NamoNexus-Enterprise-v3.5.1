@@ -16,6 +16,7 @@ class MemoryDB(Base):
     """Persistent memory table."""
 
     __tablename__ = "memories"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), index=True)

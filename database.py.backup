@@ -75,8 +75,6 @@ class DatabaseConnectionPool:
 
     def _connect(self, timeout: float = DB_TIMEOUT_SECONDS) -> sqlite3.Connection:
         if self.cipher_key:
-            if "'" in self.cipher_key:
-                raise ValueError("Cipher key cannot contain single quotes")
             if sqlcipher is None:
                 raise RuntimeError("DB_CIPHER_KEY set but pysqlcipher3 is not installed")
             conn = sqlcipher.connect(
@@ -85,7 +83,8 @@ class DatabaseConnectionPool:
                 timeout=timeout,
             )
             cursor = conn.cursor()
-            cursor.execute(f"PRAGMA key = '{self.cipher_key}'")
+            safe_key = self.cipher_key.replace("'", "''")
+            cursor.execute(f"PRAGMA key = '{safe_key}'")
             cursor.execute("PRAGMA cipher = 'aes-256-cfb'")
             cursor.close()
         else:

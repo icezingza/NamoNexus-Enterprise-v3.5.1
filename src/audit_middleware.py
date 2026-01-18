@@ -47,7 +47,15 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         db_session = self._session_factory()
         try:
-            write_log(db_session, user_id, endpoint, method, payload)
+            write_log(
+                db_session,
+                user_id,
+                endpoint,
+                method,
+                payload,
+                ip_addr=request.client.host if request.client else "",
+                user_agent=request.headers.get("user-agent", ""),
+            )
         finally:
             db_session.close()
 

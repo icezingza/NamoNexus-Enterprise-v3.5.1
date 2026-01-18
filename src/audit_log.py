@@ -34,14 +34,16 @@ def write_log(
     endpoint: str,
     method: str,
     payload: dict,
+    ip_addr: str = "",
+    user_agent: str = "",
 ) -> None:
     session.add(
         AuditLog(
             user_id=user_id,
             endpoint=endpoint,
             method=method,
-            ip_addr="",
-            user_agent="",
+            ip_addr=ip_addr,
+            user_agent=user_agent,
             payload=json.dumps(payload, ensure_ascii=False),
         )
     )
