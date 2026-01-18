@@ -34,12 +34,21 @@ jobs:
             namonexus:${{ github.ref_name }}
           sleep 5
           curl -f http://localhost:8080/health > health.log
-          # Generate dummy audio file for testing
+      - name: Generate dummy audio file for testing
+        run: |
           echo "dummy audio content" > namo_demo_case_c_moderate_complaint.mp3
+      - name: Test /triage/audio endpoint
+        env:
+          NAMO_NEXUS_TOKEN: ${{ github.event.inputs.NAMO_NEXUS_TOKEN || 'dummy_token' }}
+        run: |
           curl -f -X POST http://localhost:8080/triage/audio \
             -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
             -F "audio_file=@namo_demo_case_c_moderate_complaint.mp3" \
             -F "user_id=test_user" > triage_audio.log
+      - name: Test /triage endpoint
+        env:
+          NAMO_NEXUS_TOKEN: ${{ github.event.inputs.NAMO_NEXUS_TOKEN || 'dummy_token' }}
+        run: |
           curl -f http://localhost:8080/triage \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \

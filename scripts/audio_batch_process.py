@@ -63,12 +63,16 @@ def normalize_case_id(name: str) -> str:
     return cleaned
 
 
-def ensure_ffmpeg_in_path() -> Optional[str]:
+def ensure_ffmpeg_in_path(output_dir: Path) -> Optional[str]:
     if imageio_ffmpeg is None:
         return None
     ffmpeg_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
-    ffmpeg_dir = str(ffmpeg_exe.parent)
-    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+    wrapper_dir = output_dir / "_bin"
+    wrapper_dir.mkdir(parents=True, exist_ok=True)
+    wrapper_path = wrapper_dir / "ffmpeg.exe"
+    if not wrapper_path.exists():
+        shutil.copy2(ffmpeg_exe, wrapper_path)
+    os.environ["PATH"] = str(wrapper_dir) + os.pathsep + os.environ.get("PATH", "")
     return str(ffmpeg_exe)
 
 
@@ -157,7 +161,7 @@ def main() -> int:
     if not args.no_transcribe:
         if whisper is None:
             raise SystemExit("Whisper is not installed. Use --no-transcribe or install.")
-        ffmpeg_path = ensure_ffmpeg_in_path()
+        ffmpeg_path = ensure_ffmpeg_in_path(output_dir)
         model = whisper.load_model(args.model, device="cpu")
 
     records: List[Dict[str, object]] = []
