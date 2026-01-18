@@ -34,10 +34,16 @@ jobs:
             namonexus:${{ github.ref_name }}
           sleep 5
           curl -f http://localhost:8080/health > health.log
+          # Generate dummy audio file for testing
+          echo "dummy audio content" > namo_demo_case_c_moderate_complaint.mp3
+          curl -f -X POST http://localhost:8080/triage/audio \
+            -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
+            -F "audio_file=@namo_demo_case_c_moderate_complaint.mp3" \
+            -F "user_id=test_user" > triage_audio.log
           curl -f http://localhost:8080/triage \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $NAMO_NEXUS_TOKEN" \
-            -d '{"user_id":"u1","message":"GA test"}' > triage.log
+            -d '{"user_id":"test_user","message":"test"}' > triage.log
       - name: Upload evidence
         uses: actions/upload-artifact@v4
         with:
@@ -45,3 +51,4 @@ jobs:
           path: |
             health.log
             triage.log
+            triage_audio.log
