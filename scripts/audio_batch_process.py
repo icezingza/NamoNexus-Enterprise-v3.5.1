@@ -57,10 +57,9 @@ TONE_HINTS = {
 
 
 def normalize_case_id(name: str) -> str:
-    cleaned = name
+    cleaned = CASE_SUFFIX_RE.sub("", name)
     while cleaned.lower().endswith(".mp3"):
         cleaned = cleaned[:-4]
-    cleaned = CASE_SUFFIX_RE.sub("", cleaned)
     return cleaned
 
 
