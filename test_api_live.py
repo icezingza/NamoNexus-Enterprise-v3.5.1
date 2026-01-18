@@ -7,8 +7,12 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import requests
+from dotenv import load_dotenv
 from src.i18n import load_locale
 from src.allowed_services import ensure_url_allowed
+
+# Load environment variables from .env file
+load_dotenv()
 
 try:
     from tabulate import tabulate
