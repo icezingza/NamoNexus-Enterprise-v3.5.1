@@ -1,13 +1,19 @@
 from typing import Dict
 
+from src.i18n import load_locale
+
+
+_LOCALE = load_locale("th")
+
 
 class EmotionService:
     def __init__(self) -> None:
         pass
 
     def analyze_sentiment(self, text: str) -> Dict:
-        positive_keywords = ["ดี", "ดีใจ", "สุข", "ยินดี", "ชอบ"]
-        negative_keywords = ["เศร้า", "เหงา", "กังวล", "โกรธ", "หนาว"]
+        locale_emotion = _LOCALE["emotion_service_basic"]
+        positive_keywords = locale_emotion["positive_keywords"]
+        negative_keywords = locale_emotion["negative_keywords"]
 
         text_lower = text.lower()
 
@@ -37,13 +43,10 @@ class EmotionService:
         }
 
     def generate_dharma_insight_from_emotion(self, emotion: str, intensity: float) -> str:
-        insights = {
-            "sadness": "ทุกข์นี้ไม่เที่ยง... มันจะเปลี่ยนแปลง",
-            "anxiety": "ความกังวลเกิดจากอนาคต... ปัจจุบันนี้ปลอดภัย",
-            "anger": "โครธคือสัญญาณที่บอกว่ามีขอบเขตถูกลั่วง",
-            "joy": "ความสุขชั่วขณะ... ซาบซึ้งด้วยสติ",
-        }
-        return insights.get(emotion.lower(), "ทุกอารมณ์คือข้อมูล ไม่ใช่ความจริง")
+        locale_emotion = _LOCALE["emotion_service_basic"]
+        insights = locale_emotion["insights"]
+        default_insight = locale_emotion["default_insight"]
+        return insights.get(emotion.lower(), default_insight)
 
 
 emotion_service = EmotionService()

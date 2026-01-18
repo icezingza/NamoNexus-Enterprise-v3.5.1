@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from cache import CacheBackend, DEFAULT_CACHE_TTL, InMemoryCache
+from src.i18n import load_locale
 
 try:
     from pysqlcipher3 import dbapi2 as sqlcipher
@@ -28,6 +29,7 @@ DEFAULT_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
 DB_TIMEOUT_SECONDS = float(os.getenv("DB_TIMEOUT_SECONDS", "30"))
 DB_BUSY_TIMEOUT_MS = int(DB_TIMEOUT_SECONDS * 1000)
 SEMAPHORE_TIMEOUT_SECONDS = float(os.getenv("DB_SEMAPHORE_TIMEOUT", "30"))
+_LOCALE = load_locale("th")
 
 
 def _is_write_query(query: str) -> bool:
@@ -85,7 +87,8 @@ class DatabaseConnectionPool:
                 timeout=timeout,
             )
             cursor = conn.cursor()
-            cursor.execute(f"PRAGMA key = '{self.cipher_key}'")
+            # Use parameter binding to prevent SQL injection.
+            cursor.execute("PRAGMA key = ?", (self.cipher_key,))
             cursor.execute("PRAGMA cipher = 'aes-256-cfb'")
             cursor.close()
         else:
@@ -421,25 +424,7 @@ class GridIntelligence:
         return await asyncio.to_thread(self.create_crisis_alert, data)
 
     def _generate_empathy_prompts(self, risk_level: str) -> List[str]:
-        prompts = {
-            "severe": [
-                "ผู้ใช้อยู่ในภาวะวิกฤตสูง - ใช้น้ำเสียงอ่อนโยนและแสดงความเห็นใจ",
-                "ฟังอย่างตั้งใจ อย่าตัดสิน ยืนยันความรู้สึกของเขา",
-                "ถามเกี่ยวกับแผนการทำร้ายตัวเอง (means, intent, plan)",
-                "อยู่กับเขาจนกว่าจะปลอดภัย - อย่าปล่อยให้อยู่คนเดียว",
-            ],
-            "moderate": [
-                "แสดงความเข้าใจและเห็นใจ",
-                "สำรวจแหล่งสนับสนุนทางสังคม",
-                "เสนอทางเลือกและกลยุทธ์การรับมือ",
-                "ติดตามผลอย่างสม่ำเสมอ",
-            ],
-            "low": [
-                "สร้างบรรยากาศที่อบอุ่น",
-                "ส่งเสริมการดูแลตนเอง",
-                "ชื่นชมความกล้าที่ขอความช่วยเหลือ",
-            ],
-        }
+        prompts = _LOCALE["database"]["empathy_prompts"]
         return prompts.get(risk_level, prompts["low"])
 
     def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:

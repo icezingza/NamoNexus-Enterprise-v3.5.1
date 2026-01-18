@@ -45,19 +45,21 @@ from src.audit_log import Base as AuditBase, ensure_retention_policy
 from src.audit_middleware import AuditMiddleware
 from src.auth_utils import verify_token
 from src.database_secure import get_secure_engine
+from src.i18n import load_locale
 from src.schemas_day2 import InteractRequest, ReflectRequest, TriageRequest
 from src.security_patch import add_https_redirect
 
 configure_logging()
 logger = logging.getLogger("namo_nexus")
 uvicorn_logger = logging.getLogger("uvicorn")
+_LOCALE = load_locale("th")
 
 
 # ---------- Minimal CORS helper (compatible 5a71b0a7) ----------
 def load_cors_origins() -> list[str]:
     """
     Return allowed CORS origins from env.
-    If CORS_ORIGINS is not set → allow localhost only.
+    If CORS_ORIGINS is not set -> allow localhost only.
     Format: comma-separated, no space.
     """
     raw = os.getenv("CORS_ORIGINS")
@@ -188,26 +190,31 @@ class NamoNexusEnterprise:
     ) -> str:
         tone = ethics["emotional_tone"]
         risk = ethics["risk_level"]
+        responses = _LOCALE["responses"]
+        greetings = responses["greeting"]
+        main_map = responses["main"]
 
         if tone == "compassionate":
-            greeting = "พี่ครับ ผมรู้สึกว่าพี่กำลังลำบากใจมากนะ "
+            greeting = greetings["compassionate"]
         elif tone == "supportive":
-            greeting = "สวัสดีครับ ผมพร้อมรับฟังพี่นะ "
+            greeting = greetings["supportive"]
         else:
-            greeting = "สวัสดีครับ "
+            greeting = greetings["default"]
 
         if risk == "severe":
-            main = "ผมเห็นว่าพี่กำลังเจอช่วงเวลาที่ยากลำบากมาก พี่ไม่ได้อยู่คนเดียวนะครับ ให้ผมช่วยพี่ได้ไหม"
+            main = main_map["severe"]
         elif risk == "moderate":
-            main = "ขอบคุณที่ไว้วางใจเล่าให้ฟังนะครับ ผมเข้าใจความรู้สึกของพี่"
+            main = main_map["moderate"]
         else:
-            main = "ยินดีที่ได้พูดคุยกับพี่ครับ"
+            main = main_map["low"]
 
         dharma_note = ""
         if ethics["principles"]:
-            dharma_note = f" (หลักธรรม: {', '.join(ethics['principles'])})"
+            dharma_note = " " + responses["dharma_note_format"].format(
+                principles=", ".join(ethics["principles"])
+            )
 
-        return f"{greeting}{main}{dharma_note}"
+        return f"{greeting} {main}{dharma_note}"
 
     def _background_process(
         self,
@@ -241,8 +248,9 @@ class NamoNexusEnterprise:
                     "risk_level": ethics["risk_level"],
                 }
             )
-            print(
-                f"▲ CRISIS ALERT: User {request.user_id} requires immediate human intervention"
+            logger.warning(
+                "Crisis alert: user %s requires immediate human intervention",
+                request.user_id,
             )
 
     @staticmethod

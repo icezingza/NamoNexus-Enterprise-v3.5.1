@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Dict
 
+from src.i18n import load_locale
 from src.utils.exceptions import InvalidInputError, ServiceError
 from src.utils.logger import logger
 
@@ -21,8 +22,9 @@ class EmotionService:
             if not cleaned:
                 raise InvalidInputError("Text cannot be empty")
 
-            positive_keywords = ["ดีใจ", "ดีมาก", "สุข", "ยินดี", "ชอบ"]
-            negative_keywords = ["เศร้า", "เหงา", "กังวล", "โกรธ", "หนาว"]
+            locale_emotion = load_locale("th")["emotion_service"]
+            positive_keywords = locale_emotion["positive_keywords"]
+            negative_keywords = locale_emotion["negative_keywords"]
 
             text_lower = cleaned.lower()
 
@@ -65,13 +67,10 @@ class EmotionService:
     def generate_dharma_insight_from_emotion(
         self, emotion: str, intensity: float
     ) -> str:
-        insights = {
-            "sadness": "ทุกข์นี้ไม่เที่ยง... มันจะเปลี่ยนแปลง",
-            "anxiety": "ความกังวลเกิดจากอนาคต... ปัจจุบันนี้ปลอดภัย",
-            "anger": "โกรธคือสัญญาณที่บอกว่ามีขอบเขตถูกล่วง",
-            "joy": "ความสุขชั่วขณะ... ซาบซึ้งด้วยสติ",
-        }
-        return insights.get(emotion.lower(), "ทุกอารมณ์คือข้อมูล ไม่ใช่ความจริง")
+        locale_emotion = load_locale("th")["emotion_service"]
+        insights = locale_emotion["insights"]
+        default_insight = locale_emotion["default_insight"]
+        return insights.get(emotion.lower(), default_insight)
 
 
 emotion_service = EmotionService()

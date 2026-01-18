@@ -1,5 +1,10 @@
 from typing import Dict, Any, Optional
 
+from src.i18n import load_locale
+
+
+_LOCALE = load_locale("th")
+
 
 class CompassionPlanner:
     """Plans a compassionate, grounded reply."""
@@ -14,9 +19,10 @@ class CompassionPlanner:
         if safe_template:
             return safe_template
 
-        base = "ขอบคุณที่ไว้ใจเล่าให้ฟังนะ "
+        locale_compassion = _LOCALE["namo_nexus"]["compassion_planner"]
+        base = locale_compassion["base"]
         if emotion["distress_level"] == "high":
-            base += "ตอนนี้ขอชวนค่อย ๆ หายใจลึก ๆ แล้วรับรู้ว่าความรู้สึกนี้ไม่ได้อยู่ถาวร "
-        base += "เราลองคุยกันทีละขั้นได้เสมอ"
+            base = f"{base} {locale_compassion['high_distress']}"
+        base = f"{base} {locale_compassion['closing']}"
 
         return base

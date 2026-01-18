@@ -3,7 +3,12 @@
 Unit tests for Dharma Service
 """
 
+from src.i18n import load_locale
 from src.services.dharma_service import dharma_service, DharmaAlignmentService
+
+
+LOCALE = load_locale("th")
+DHARMA = LOCALE["dharma_service"]
 
 
 class TestDharmaService:
@@ -19,7 +24,7 @@ class TestDharmaService:
     def test_apply_four_noble_truths_sadness(self):
         """Test Four Noble Truths analysis for sadness"""
         result = dharma_service.apply_four_noble_truths(
-            problem="ผมรู้สึกเศร้าเพราะโครงการล้มเหลว", emotion="sadness", intensity=7.5
+            problem="I feel sad about a project setback", emotion="sadness", intensity=7.5
         )
 
         # Check all stages present
@@ -52,49 +57,51 @@ class TestDharmaService:
     def test_apply_four_noble_truths_anxiety(self):
         """Test Four Noble Truths analysis for anxiety"""
         result = dharma_service.apply_four_noble_truths(
-            problem="ผมกังวลเรื่องสอบ", emotion="anxiety", intensity=6.0
+            problem="I feel anxious about an exam", emotion="anxiety", intensity=6.0
         )
 
         assert result["samudaya"]["emotion"] == "anxiety"
-        assert "ความไม่แน่นอนในอนาคต" in result["samudaya"]["probable_causes"]
+        expected = DHARMA["cause_patterns"]["anxiety"]["likely_causes"][0]
+        assert expected in result["samudaya"]["probable_causes"]
         assert len(result["magga"]["eightfold_path_steps"]) == 8
 
     def test_apply_four_noble_truths_anger(self):
         """Test Four Noble Truths analysis for anger"""
         result = dharma_service.apply_four_noble_truths(
-            problem="ผมโกรธที่ถูกปฏิบัติไม่ยุติธรรม", emotion="anger", intensity=8.0
+            problem="I feel angry about unfair treatment", emotion="anger", intensity=8.0
         )
 
         assert result["samudaya"]["emotion"] == "anger"
-        assert "ขอบเขตถูกละเมิด" in result["samudaya"]["probable_causes"]
+        expected = DHARMA["cause_patterns"]["anger"]["likely_causes"][0]
+        assert expected in result["samudaya"]["probable_causes"]
         assert len(result["magga"]["eightfold_path_steps"]) == 8
 
     def test_dharmic_path_high_intensity(self):
         """Test dharmic path suggestion for high intensity"""
         result = dharma_service.apply_four_noble_truths(
-            problem="ทุกข์มาก", emotion="sadness", intensity=9.0
+            problem="I am in deep pain", emotion="sadness", intensity=9.0
         )
 
         assert "dharmic_path" in result
-        assert len(result["dharmic_path"]) > 0
+        assert result["dharmic_path"] == DHARMA["path_messages"]["high"]
 
     def test_dharmic_path_medium_intensity(self):
         """Test dharmic path suggestion for medium intensity"""
         result = dharma_service.apply_four_noble_truths(
-            problem="รู้สึกไม่ดี", emotion="sadness", intensity=6.0
+            problem="I feel low today", emotion="sadness", intensity=6.0
         )
 
         assert "dharmic_path" in result
-        assert "ปัญญา" in result["dharmic_path"]
+        assert result["dharmic_path"] == DHARMA["path_messages"]["medium"]
 
     def test_dharmic_path_low_intensity(self):
         """Test dharmic path suggestion for low intensity"""
         result = dharma_service.apply_four_noble_truths(
-            problem="เบื่อนิดหน่อย", emotion="sadness", intensity=3.0
+            problem="I feel a bit bored", emotion="sadness", intensity=3.0
         )
 
         assert "dharmic_path" in result
-        assert "สติ" in result["dharmic_path"]
+        assert result["dharmic_path"] == DHARMA["path_messages"]["low"]
 
     def test_intensity_guidance_critical(self):
         """Test intensity guidance for critical level"""
@@ -102,7 +109,7 @@ class TestDharmaService:
             problem="test", emotion="sadness", intensity=9.0
         )
 
-        assert "🚨" in result["magga"]["intensity_guidance"]
+        assert result["magga"]["intensity_guidance"] == DHARMA["intensity_guidance"]["high"]
 
     def test_intensity_guidance_medium(self):
         """Test intensity guidance for medium level"""
@@ -110,7 +117,7 @@ class TestDharmaService:
             problem="test", emotion="sadness", intensity=6.0
         )
 
-        assert "⚠️" in result["magga"]["intensity_guidance"]
+        assert result["magga"]["intensity_guidance"] == DHARMA["intensity_guidance"]["medium"]
 
     def test_intensity_guidance_low(self):
         """Test intensity guidance for low level"""
@@ -118,7 +125,7 @@ class TestDharmaService:
             problem="test", emotion="sadness", intensity=2.0
         )
 
-        assert "💚" in result["magga"]["intensity_guidance"]
+        assert result["magga"]["intensity_guidance"] == DHARMA["intensity_guidance"]["low"]
 
     def test_coherence_score_all_stages(self):
         """Test coherence score when all stages present"""
@@ -163,11 +170,11 @@ class TestDharmaService:
     def test_thai_language_support(self):
         """Test Thai language in responses"""
         result = dharma_service.apply_four_noble_truths(
-            problem="ทดสอบ", emotion="sadness", intensity=5.0
+            problem="test", emotion="sadness", intensity=5.0
         )
 
         # Check Thai text present
-        assert "ทุกข์" in result["dukkha"]["truth"]
-        assert "สาเหตุ" in result["samudaya"]["truth"]
-        assert "สิ้นสุดได้" in result["nirodha"]["truth"]
-        assert "เส้นทาง" in result["magga"]["truth"]
+        assert result["dukkha"]["truth"] == DHARMA["stages"]["dukkha"]["truth"]
+        assert result["samudaya"]["truth"] == DHARMA["stages"]["samudaya"]["truth"]
+        assert result["nirodha"]["truth"] == DHARMA["stages"]["nirodha"]["truth"]
+        assert result["magga"]["truth"] == DHARMA["stages"]["magga"]["truth"]

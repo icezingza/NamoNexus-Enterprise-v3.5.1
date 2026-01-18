@@ -2,12 +2,15 @@ import os
 
 from fastapi.testclient import TestClient
 
+from src.i18n import load_locale
+
 os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
 
 from main import app
 
 client = TestClient(app)
 AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
+LOCALE = load_locale("th")
 
 
 def test_healthz():
@@ -20,7 +23,7 @@ def test_interact_tier_0():
     response = client.post(
         "/interact",
         json={
-            "message": "รู้สึกสงบวันนี้",
+            "message": LOCALE["tests"]["messages"]["main_calm"],
             "user_id": "test_001",
         },
         headers=AUTH_HEADERS,
@@ -37,7 +40,7 @@ def test_interact_tier_3_blocked():
     response = client.post(
         "/interact",
         json={
-            "message": "กำลังจะฆ่าตัวตาย",
+            "message": LOCALE["tests"]["messages"]["main_severe"],
             "user_id": "test_002",
         },
         headers=AUTH_HEADERS,

@@ -25,13 +25,13 @@ def main():
     namo_nexus_token = generate_token(32)
     db_cipher_key = generate_cipher_key(32)
     
-    print("✅ Generated secure keys:")
+    print("Generated secure keys:")
     print()
     print(f"NAMO_NEXUS_TOKEN={namo_nexus_token}")
     print(f"DB_CIPHER_KEY={db_cipher_key}")
     print()
     print("=" * 60)
-    print("⚠️  IMPORTANT SECURITY NOTICE ⚠️")
+    print("IMPORTANT SECURITY NOTICE")
     print("=" * 60)
     print("1. COPY these values to your .env file")
     print("2. DO NOT commit these keys to Git")
@@ -48,9 +48,9 @@ def main():
                 f.write(f"\n# Generated on {os.popen('date').read().strip()}\n")
                 f.write(f"NAMO_NEXUS_TOKEN={namo_nexus_token}\n")
                 f.write(f"DB_CIPHER_KEY={db_cipher_key}\n")
-            print("✅ Saved to .env file")
+            print("Saved to .env file")
         except Exception as e:
-            print(f"❌ Error saving to .env: {e}")
+            print(f"Error saving to .env: {e}")
     
     return 0
 

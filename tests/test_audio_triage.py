@@ -10,6 +10,8 @@ import soundfile as sf
 import pytest
 from fastapi.testclient import TestClient
 
+from src.i18n import load_locale
+
 os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
 os.environ.setdefault("ENABLE_TRANSCRIPTION", "false")  # Disable Whisper for tests
 
@@ -17,6 +19,7 @@ from main import app
 
 client = TestClient(app)
 AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
+LOCALE = load_locale("th")
 
 
 def create_test_wav(duration: float = 1.0, freq: float = 440.0) -> bytes:
@@ -41,7 +44,10 @@ class TestAudioTriageEndpoint:
         response = client.post(
             "/triage/audio",
             files={"audio": ("test.wav", audio_bytes, "audio/wav")},
-            data={"user_id": "audio_test_001", "message": "ทดสอบเสียง"},
+            data={
+                "user_id": "audio_test_001",
+                "message": LOCALE["tests"]["messages"]["audio_prompt"],
+            },
             headers=AUTH_HEADERS,
         )
         
@@ -57,7 +63,7 @@ class TestAudioTriageEndpoint:
     def test_audio_triage_with_transcription_override(self):
         """Test audio triage with user-provided message overriding transcription."""
         audio_bytes = create_test_wav()
-        custom_message = "ผมรู้สึกเศร้า"
+        custom_message = LOCALE["tests"]["messages"]["audio_custom"]
         
         response = client.post(
             "/triage/audio",
@@ -133,7 +139,7 @@ class TestAudioTriageEndpoint:
             files={"audio": ("test.wav", audio_bytes, "audio/wav")},
             data={
                 "user_id": "crisis_test",
-                "message": "กำลังจะฆ่าตัวตาย ไม่อยากมีชีวิตอยู่แล้ว",
+                "message": LOCALE["tests"]["messages"]["audio_crisis"],
             },
             headers=AUTH_HEADERS,
         )

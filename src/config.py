@@ -2,8 +2,11 @@ import os
 
 from dotenv import load_dotenv
 
+from src.i18n import load_locale
+
 
 load_dotenv()
+_LOCALE = load_locale("th")
 
 
 class Config:
@@ -19,15 +22,7 @@ class Config:
         "hurt myself",
         "can't go on",
         "no reason to live",
-        "ฆ่าตัวตาย",
-        "ทำร้ายตัวเอง",
-        "อยากตาย",
-        "หมดหวัง",
-        "ไม่อยากมีชีวิต",
-        "จบชีวิต",
-        "กระโดดตึก",
-        "กินยาตาย",
-    ]
+    ] + _LOCALE["config"]["critical_keywords_th"]
     MAX_MEMORY_ITEMS = int(os.getenv("MAX_MEMORY_ITEMS", "1000"))
     MEMORY_RETENTION_DAYS = int(os.getenv("MEMORY_RETENTION_DAYS", "365"))
 

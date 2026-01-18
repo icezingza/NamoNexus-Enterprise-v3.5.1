@@ -6,11 +6,14 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from models import MultiModalAnalysis
+from src.i18n import load_locale
 
 PHI = (1 + 5**0.5) / 2
 INV_PHI = PHI - 1
 REMAINDER = 1 - INV_PHI
 GOLDEN_RATIO = PHI
+_LOCALE = load_locale("th")
+_CORE_CONFIG = _LOCALE["core_engine"]
 
 
 def calculate_harmonic_risk(primary_risk: float, secondary_risk: float) -> float:
@@ -22,25 +25,8 @@ def calculate_harmonic_risk(primary_risk: float, secondary_risk: float) -> float
 class DhammicDataLake:
     """Central dharma ruleset and lightweight insight store."""
 
-    CORE_PRINCIPLES = {
-        "right_speech": {
-            "keywords": ["สัตย์", "จริง", "ถูกต้อง", "ประโยชน์", "สันติ"],
-            "weight": 0.35,
-        },
-        "compassion": {
-            "keywords": ["เมตตา", "กรุณา", "ช่วยเหลือ", "อนุเคราะห์", "เห็นใจ"],
-            "weight": 0.35,
-        },
-        "mindfulness": {
-            "keywords": ["สติ", "ระลึก", "รู้ตัว", "ตระหนัก", "รู้เท่าทัน"],
-            "weight": 0.30,
-        },
-    }
-
-    SAFETY_CONSTRAINTS = {
-        "high_risk_patterns": ["ฆ่าตัวตาย", "ทำร้ายตัวเอง", "อยากตาย", "หมดหวัง"],
-        "immediate_escalation": ["กำลังจะ", "วันนี้จะ", "เตรียม"],
-    }
+    CORE_PRINCIPLES = _CORE_CONFIG["core_principles"]
+    SAFETY_CONSTRAINTS = _CORE_CONFIG["safety_constraints"]
 
     def __init__(self) -> None:
         self.logger = logging.getLogger("namo_nexus.datalake")
@@ -99,12 +85,7 @@ class MultiModalTriageEngine:
     def __init__(self) -> None:
         self.logger = logging.getLogger("namo_nexus.triage")
         self.dhammic_lake = DhammicDataLake()
-        self.text_patterns = {
-            "severe": ["ตาย", "ฆ่าตัวตาย", "อยากตาย", "ไม่อยากมีชีวิต"],
-            "high": ["เจ็บ", "ทรมาน", "ทุกข์มาก", "เหนื่อยมาก"],
-            "moderate": ["เศร้า", "หดหู่", "ท้อแท้", "stress"],
-            "low": ["กังวล", "ไม่สบายใจ", "งง"],
-        }
+        self.text_patterns = _CORE_CONFIG["text_patterns"]
 
     def _validate_input(
         self,
@@ -124,8 +105,8 @@ class MultiModalTriageEngine:
     async def _analyze_text_ml_ready(self, text: str) -> Dict[str, Any]:
         # ML-ready hook: swap keyword matching with transformer inference later.
         text_lower = text.lower()
-        depression_keywords = ["เศร้า", "ทุกข์", "หมดหวัง", "เหนื่อย", "ไม่มีแรง"]
-        severity_keywords = ["มาก", "ทุกวัน", "ตลอดเวลา", "ไม่หยุด"]
+        depression_keywords = _CORE_CONFIG["depression_keywords"]
+        severity_keywords = _CORE_CONFIG["severity_keywords"]
 
         base_score = sum(0.15 for keyword in depression_keywords if keyword in text_lower)
         severity_multiplier = 1.5 if any(

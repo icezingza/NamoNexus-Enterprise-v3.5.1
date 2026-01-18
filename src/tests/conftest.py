@@ -8,7 +8,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.db import Base, get_db
+from src.i18n import load_locale
 from src.main import app
+
+LOCALE = load_locale("th")
 
 
 @pytest.fixture(scope="session")
@@ -49,4 +52,4 @@ def client(db_session):
 
 @pytest.fixture()
 def sample_user_message():
-    return {"user_id": "test_user_123", "message": "ฉันรู้สึกกังวล"}
+    return {"user_id": "test_user_123", "message": LOCALE["tests"]["messages"]["api_anxiety_alt"]}

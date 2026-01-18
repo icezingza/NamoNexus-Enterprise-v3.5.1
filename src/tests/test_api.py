@@ -1,5 +1,10 @@
 from fastapi.testclient import TestClient
 
+from src.i18n import load_locale
+
+
+LOCALE = load_locale("th")
+
 
 def test_health_endpoint(client: TestClient):
     response = client.get("/health")
@@ -22,7 +27,7 @@ def test_readyz_endpoint(client: TestClient):
 
 
 def test_interact_basic(client: TestClient):
-    payload = {"user_id": "test_user_001", "message": "สวัสดี"}
+    payload = {"user_id": "test_user_001", "message": LOCALE["tests"]["messages"]["api_greeting"]}
     response = client.post("/interact", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -37,7 +42,7 @@ def test_interact_missing_fields(client: TestClient):
 
 
 def test_reflect_endpoint(client: TestClient):
-    payload = {"text": "ผมรู้สึกกังวล", "user_id": "test_user_002"}
+    payload = {"text": LOCALE["tests"]["messages"]["api_anxiety"], "user_id": "test_user_002"}
     response = client.post("/reflect", json=payload)
     assert response.status_code == 200
     data = response.json()

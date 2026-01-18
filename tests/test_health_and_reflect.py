@@ -3,6 +3,8 @@ import os
 
 from fastapi.testclient import TestClient
 
+from src.i18n import load_locale
+
 os.environ.setdefault("NAMO_NEXUS_TOKEN", "test-token")
 
 from main import app
@@ -10,6 +12,7 @@ from main import app
 
 client = TestClient(app)
 AUTH_HEADERS = {"Authorization": f"Bearer {os.environ['NAMO_NEXUS_TOKEN']}"}
+LOCALE = load_locale("th")
 
 
 def test_health_endpoint_returns_ok():
@@ -32,7 +35,7 @@ def test_ready_endpoint_contains_metrics():
 def test_reflect_endpoint_basic():
     response = client.post(
         "/reflect",
-        json={"message": "รู้สึกสบายใจวันนี้", "user_id": "test_003"},
+        json={"message": LOCALE["tests"]["messages"]["reflect_calm"], "user_id": "test_003"},
         headers=AUTH_HEADERS,
     )
     assert response.status_code == 200

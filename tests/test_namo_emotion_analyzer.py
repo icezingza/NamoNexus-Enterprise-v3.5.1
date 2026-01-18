@@ -1,5 +1,10 @@
 import pytest
+
 from namo_nexus.affect.emotion_analyzer import EmotionAnalyzer
+from src.i18n import load_locale
+
+
+LOCALE = load_locale("th")
 
 def test_emotion_analyzer_neutral():
     analyzer = EmotionAnalyzer()
@@ -27,5 +32,5 @@ def test_emotion_analyzer_distress():
 
 def test_emotion_analyzer_distress_thai():
     analyzer = EmotionAnalyzer()
-    result = analyzer.analyze("ไม่อยากอยู่แล้ว", {})
+    result = analyzer.analyze(LOCALE["tests"]["messages"]["namo_emotion_distress"], {})
     assert result["distress_level"] == "high"
