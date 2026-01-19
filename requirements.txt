@@ -14,3 +14,4 @@ redis==5.0
 prometheus-client==0.20
 whisper-openai
 librosa==0.10.1
+httpx
