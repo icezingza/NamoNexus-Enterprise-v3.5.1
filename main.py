@@ -444,7 +444,7 @@ async def triage_audio_endpoint(
     # Extract voice features (run in thread pool to not block)
     try:
         from voice_extractor import voice_extractor
-    except (ImportError, OSError) as exc:
+    except Exception as exc:
         logger.error(f"Voice extractor import failed: {exc}")
         raise HTTPException(
             status_code=503,

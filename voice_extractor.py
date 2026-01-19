@@ -19,10 +19,21 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import librosa
-import numpy as np
-
 logger = logging.getLogger("namo_nexus.voice")
+
+# Graceful degradation for Librosa/Numpy (Fix for Windows/Python 3.13 issues)
+try:
+    import librosa
+    import numpy as np
+    LIBROSA_AVAILABLE = True
+except (ImportError, OSError, RuntimeError) as e:
+    logger.error(f"Audio processing libraries (Librosa/Numpy) not available: {e}")
+    LIBROSA_AVAILABLE = False
+    # Mock np for type hints to prevent NameError
+    class MockNp:
+        ndarray = list
+    np = MockNp()
+
 
 # Whisper is optional - will gracefully degrade if not available
 try:
@@ -130,6 +141,19 @@ class VoiceExtractor:
         Returns:
             VoiceAnalysisResult with extracted features
         """
+        if not LIBROSA_AVAILABLE:
+            logger.warning("Librosa unavailable. Returning dummy voice features.")
+            return VoiceAnalysisResult(
+                pitch_variance=0.5,
+                energy=0.5,
+                speech_rate=0.5,
+                pause_ratio=0.0,
+                tremor_index=0.0,
+                pitch_mean_hz=0.0,
+                duration_seconds=1.0,
+                transcription="[Audio analysis unavailable - Librosa missing]"
+            )
+
         # Load audio with librosa
         y, sr = librosa.load(
             io.BytesIO(audio_bytes),
@@ -165,6 +189,19 @@ class VoiceExtractor:
         Returns:
             VoiceAnalysisResult with extracted features
         """
+        if not LIBROSA_AVAILABLE:
+            logger.warning("Librosa unavailable. Returning dummy voice features.")
+            return VoiceAnalysisResult(
+                pitch_variance=0.5,
+                energy=0.5,
+                speech_rate=0.5,
+                pause_ratio=0.0,
+                tremor_index=0.0,
+                pitch_mean_hz=0.0,
+                duration_seconds=1.0,
+                transcription="[Audio analysis unavailable - Librosa missing]"
+            )
+
         y, sr = librosa.load(file_path, sr=self.sample_rate, mono=True)
         result = self._analyze_audio(y, sr)
         

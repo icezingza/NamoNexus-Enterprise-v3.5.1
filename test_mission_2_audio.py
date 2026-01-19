@@ -32,8 +32,10 @@ def run_mission_2_real():
             # เดา Content-Type ง่ายๆ
             mime_type = 'audio/mpeg' if target_file.endswith('.mp3') else 'audio/wav'
             
+            # FIX: ใช้ key 'audio' และตั้งชื่อไฟล์ให้เรียบง่ายเพื่อป้องกันปัญหา Header Parsing
+            # ชื่อไฟล์ที่มีเว้นวรรคหรือวงเล็บอาจทำให้ Server (uvicorn/python-multipart) สับสนได้
             safe_filename = "test_audio" + os.path.splitext(target_file)[1]
-            files = {'audio_file': (safe_filename, f, mime_type)}
+            files = {'audio': (safe_filename, f, mime_type)}
             data = {'user_id': 'mission_2_agent'}
             
             response = requests.post(API_URL, files=files, data=data, headers=headers)
