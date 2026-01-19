@@ -155,14 +155,27 @@ class VoiceExtractor:
             )
 
         # Load audio with librosa
-        y, sr = librosa.load(
-            io.BytesIO(audio_bytes),
-            sr=self.sample_rate,
-            mono=True,
-        )
-        
-        # Extract acoustic features
-        result = self._analyze_audio(y, sr)
+        try:
+            y, sr = librosa.load(
+                io.BytesIO(audio_bytes),
+                sr=self.sample_rate,
+                mono=True,
+            )
+            
+            # Extract acoustic features
+            result = self._analyze_audio(y, sr)
+        except Exception as e:
+            logger.error(f"Audio processing failed: {e}")
+            return VoiceAnalysisResult(
+                pitch_variance=0.5,
+                energy=0.5,
+                speech_rate=0.5,
+                pause_ratio=0.0,
+                tremor_index=0.0,
+                pitch_mean_hz=0.0,
+                duration_seconds=1.0,
+                transcription=f"[Audio analysis failed: {e}]"
+            )
         
         # Optionally transcribe
         if transcribe and self.enable_transcription:
@@ -202,8 +215,21 @@ class VoiceExtractor:
                 transcription="[Audio analysis unavailable - Librosa missing]"
             )
 
-        y, sr = librosa.load(file_path, sr=self.sample_rate, mono=True)
-        result = self._analyze_audio(y, sr)
+        try:
+            y, sr = librosa.load(file_path, sr=self.sample_rate, mono=True)
+            result = self._analyze_audio(y, sr)
+        except Exception as e:
+            logger.error(f"Audio processing failed: {e}")
+            return VoiceAnalysisResult(
+                pitch_variance=0.5,
+                energy=0.5,
+                speech_rate=0.5,
+                pause_ratio=0.0,
+                tremor_index=0.0,
+                pitch_mean_hz=0.0,
+                duration_seconds=1.0,
+                transcription=f"[Audio analysis failed: {e}]"
+            )
         
         if transcribe and self.enable_transcription:
             try:
