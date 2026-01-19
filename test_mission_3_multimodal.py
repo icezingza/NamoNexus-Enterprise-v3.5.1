@@ -54,9 +54,6 @@ def run_multimodal_mission():
             print(f"   [Risk Level]: {data.get('risk_level').upper()}")
             print(f"   [Multimodal Confidence]: {data.get('multimodal_confidence')}")
             
-            # Verification Logic
-            # ถ้าระบบ Fusion ทำงานถูกต้อง Risk Level ควรจะเป็น MODERATE หรือ SEVERE 
-            # แม้ว่าข้อความจะดูปกติก็ตาม
             risk = data.get('risk_level')
             conf = data.get('multimodal_confidence', 0)
             
