@@ -444,13 +444,14 @@ async def triage_audio_endpoint(
     # Extract voice features (run in thread pool to not block)
     try:
         from voice_extractor import voice_extractor
-    except ModuleNotFoundError as exc:
+    except (ImportError, OSError) as exc:
+        logger.error(f"Voice extractor import failed: {exc}")
         raise HTTPException(
             status_code=503,
-            detail="Voice analysis dependencies not installed",
+            detail=f"Voice analysis dependencies not installed or failed to load: {exc}",
         ) from exc
     try:
-        voice_result: VoiceAnalysisResult = await asyncio.to_thread(
+        voice_result = await asyncio.to_thread(
             voice_extractor.extract_from_bytes,
             audio_bytes,
             transcribe=True,

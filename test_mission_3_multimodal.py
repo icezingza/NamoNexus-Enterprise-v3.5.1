@@ -1,5 +1,4 @@
-import asyncio
-import httpx
+import requests
 import os
 import sys
 import json
@@ -8,7 +7,7 @@ import json
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
 
-async def run_multimodal_mission():
+def run_multimodal_mission():
     base_url = "http://127.0.0.1:8000"
     token = os.getenv("NAMO_NEXUS_TOKEN", "DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8=")
     headers = {
@@ -38,39 +37,38 @@ async def run_multimodal_mission():
         }
     }
 
-    async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
-        try:
-            print("   Sending Multimodal Data Stream...")
-            print(f"   [Text]: \"{payload['message']}\" (Ambiguous)")
-            print(f"   [Voice]: Energy={payload['voice_features']['energy']} (Low), SpeechRate={payload['voice_features']['speech_rate']} (Slow)")
-            print(f"   [Face]: AU1={payload['facial_features']['au1']} (High Distress)")
+    try:
+        print("   Sending Multimodal Data Stream...")
+        print(f"   [Text]: \"{payload['message']}\" (Ambiguous)")
+        print(f"   [Voice]: Energy={payload['voice_features']['energy']} (Low), SpeechRate={payload['voice_features']['speech_rate']} (Slow)")
+        print(f"   [Face]: AU1={payload['facial_features']['au1']} (High Distress)")
+        
+        resp = requests.post(f"{base_url}/triage", json=payload, headers=headers, timeout=30)
+        
+        print(f"\n   HTTP Status: {resp.status_code}")
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            print("\n   --- FUSION ANALYSIS RESULT ---")
+            print(f"   [Response]: \"{data.get('response')}\"")
+            print(f"   [Risk Level]: {data.get('risk_level').upper()}")
+            print(f"   [Multimodal Confidence]: {data.get('multimodal_confidence')}")
             
-            resp = await client.post("/triage", json=payload, headers=headers)
+            # Verification Logic
+            # ถ้าระบบ Fusion ทำงานถูกต้อง Risk Level ควรจะเป็น MODERATE หรือ SEVERE 
+            # แม้ว่าข้อความจะดูปกติก็ตาม
+            risk = data.get('risk_level')
+            conf = data.get('multimodal_confidence', 0)
             
-            print(f"\n   HTTP Status: {resp.status_code}")
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                print("\n   --- FUSION ANALYSIS RESULT ---")
-                print(f"   [Response]: \"{data.get('response')}\"")
-                print(f"   [Risk Level]: {data.get('risk_level').upper()}")
-                print(f"   [Multimodal Confidence]: {data.get('multimodal_confidence')}")
-                
-                # Verification Logic
-                # ถ้าระบบ Fusion ทำงานถูกต้อง Risk Level ควรจะเป็น MODERATE หรือ SEVERE 
-                # แม้ว่าข้อความจะดูปกติก็ตาม
-                risk = data.get('risk_level')
-                conf = data.get('multimodal_confidence', 0)
-                
-                if risk in ['moderate', 'severe'] and conf > 0.7:
-                     print("\n   🎉 MISSION 3: PASSED! System detected hidden distress via Fusion.")
-                else:
-                     print(f"\n   ⚠️ MISSION 3: PARTIAL. Risk level is '{risk}'. Expected 'moderate' or 'severe'.")
+            if risk in ['moderate', 'severe'] and conf > 0.7:
+                    print("\n   🎉 MISSION 3: PASSED! System detected hidden distress via Fusion.")
             else:
-                print(f"\n   ⚠️ Mission Failed. Error Response:\n   {resp.text}")
+                    print(f"\n   ⚠️ MISSION 3: PARTIAL. Risk level is '{risk}'. Expected 'moderate' or 'severe'.")
+        else:
+            print(f"\n   ⚠️ Mission Failed. Error Response:\n   {resp.text}")
 
-        except Exception as e:
-            print(f"❌ Connection Failed: {e}")
+    except Exception as e:
+        print(f"❌ Connection Failed: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(run_multimodal_mission())
+    run_multimodal_mission()

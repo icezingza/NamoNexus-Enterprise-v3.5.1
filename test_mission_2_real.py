@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 import glob
 import sys
 
@@ -11,17 +12,10 @@ if sys.platform == "win32":
 # พิกัดคลังแสงของพี่ไอซ์
 AUDIO_DIR = r"D:\Users\NamoNexus Enterprise v3.5.1\Audio test"
 API_URL = "http://127.0.0.1:8000/triage/audio"
-# Retrieve token from env or use default for local dev
-TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8=")
 
 def run_mission_2_real():
     print(f"\n🎧 --- MISSION 2: REAL AUDIO TEST INITIATED ---")
     print(f"📂 Searching in: {AUDIO_DIR}")
-
-    # Check if directory exists first
-    if not os.path.exists(AUDIO_DIR):
-         print(f"❌ ไม่เจอโฟลเดอร์: {AUDIO_DIR}")
-         return
 
     # 1. ค้นหาไฟล์เสียงในโฟลเดอร์ (เอาไฟล์ไหนก็ได้ที่เป็น .mp3 หรือ .wav)
     audio_files = glob.glob(os.path.join(AUDIO_DIR, "*.mp3")) + glob.glob(os.path.join(AUDIO_DIR, "*.wav"))
@@ -41,11 +35,13 @@ def run_mission_2_real():
             # เดา Content-Type ง่ายๆ
             mime_type = 'audio/mpeg' if target_file.endswith('.mp3') else 'audio/wav'
             
-            # Fixed: API expects 'audio_file', not 'file'
+            # แก้ไขชื่อ field จาก 'file' เป็น 'audio_file' ให้ตรงกับ main.py
             files = {'audio_file': (os.path.basename(target_file), f, mime_type)}
             data = {'user_id': 'mission_2_agent'}
-            # Fixed: Added Authorization header
-            headers = {"Authorization": f"Bearer {TOKEN}"}
+            
+            # เพิ่ม Token ถ้าจำเป็น (ใช้ค่า Default ถ้าไม่มีใน Env)
+            token = os.getenv("NAMO_NEXUS_TOKEN", "DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8=")
+            headers = {"Authorization": f"Bearer {token}"}
             
             response = requests.post(API_URL, files=files, data=data, headers=headers)
             
@@ -53,16 +49,22 @@ def run_mission_2_real():
             if response.status_code == 200:
                 res = response.json()
                 print("\n📊 --- API RESPONSE RECEIVED ---")
+                # print(json.dumps(res, indent=2, ensure_ascii=False)) # ปิดไว้จะได้ไม่รก
                 
-                # 4. Victory Check
                 print("\n🏆 --- VICTORY KEYS VERIFICATION ---")
                 print(f"[Risk Level]: {res.get('risk_level', 'N/A')}")
-                print(f"[Voice Score]: {res.get('voice_score', 0)} (Weight ~61.8%)")
-                print(f"[Text Score]:  {res.get('text_score', 0)}")
+                
+                # ดึงค่าจาก voice_features dict ถ้ามี
+                voice_features = res.get('voice_features', {})
+                if isinstance(voice_features, dict):
+                    print(f"[Voice Energy]: {voice_features.get('energy', 0):.2f}")
+                    print(f"[Pitch Variance]: {voice_features.get('pitch_variance', 0):.2f}")
+                
+                print(f"[Transcription]: {res.get('transcription', 'N/A')}")
                 
                 if 'multimodal_confidence' in res:
                      print(f"[Confidence]: {res['multimodal_confidence']} -> ✅ PASSED")
-                     print("\n🎉 MISSION 2: PASSED! Seraphina has ears.")
+                     print("\n🎉 MISSION 2 COMPLETE: Seraphina heard the truth!")
                 else:
                      print("\n⚠️ PARTIAL SUCCESS: Data received but confidence missing.")
                 
