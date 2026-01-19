@@ -45,7 +45,8 @@ pip install -r requirements.txt
 
 ## 🛠️ Tech Stack
 
-* **Core:** Python 3.11, FastAPI
+- **Core:** Python 3.11, FastAPI
+
 - **Database:** SQLite (WAL Mode) with Thread-safe Connection Pool
 - **Deployment:** Docker, Docker Compose (Optimized for Production)
 - **Performance:** Async/Await Concurrency + Background Tasks

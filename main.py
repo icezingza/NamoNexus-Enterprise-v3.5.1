@@ -78,16 +78,15 @@ app = FastAPI(
     version="3.5.1",
     description="Mental Health Infrastructure AI - Production Hardened",
 )
-cors_origins = load_cors_origins()
-if cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials="*" not in cors_origins,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-# add_https_redirect(app)
+
+# --- [NEW] เปิดประตูให้หน้าเว็บเข้าถึงได้ (CORS) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # อนุญาตทุกเว็บ (สำหรับ Demo เท่านั้น)
+    allow_credentials=True,
+    allow_methods=["*"],  # อนุญาตทุกท่า (GET, POST, etc.)
+    allow_headers=["*"],
+)
 
 
 limiter = Limiter(key_func=get_remote_address)
