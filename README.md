@@ -1,49 +1,57 @@
-# 🏛️ NamoNexus Enterprise v3.5.1 (Production Hardened)
+# NamoNexus Enterprise v3.5.1 (Sovereign Edition) 💫
 
-> **"From Concept to Concrete: The Sovereign AI Infrastructure for Mental Health"**
+> **"The First AI with a Soul."** - Engineered with Golden Ratio Logic & Dhammic Reasoning.
 
-## 💡 About The Project
-NamoNexus Enterprise v3.5.1 คือร่างสมบูรณ์ (Reference Implementation) ของระบบปัญญาประดิษฐ์เพื่อโครงสร้างพื้นฐานด้านสาธารณสุขไทย ถูกพัฒนาต่อยอดจากแนวคิดเชิงปรัชญาใน v1.0 ให้กลายเป็น **"Production-Grade Engine"** ที่พร้อมรับมือกับ Traffic จริงในโรงพยาบาล
+![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Supreme-009688?style=for-the-badge&logo=fastapi)
+![Architecture](https://img.shields.io/badge/Architecture-Sovereign-red?style=for-the-badge)
 
-ระบบนี้ไม่ได้เป็นเพียง Chatbot แต่คือ **"หอบังคับการบินทางอารมณ์" (Emotional Air Traffic Control)** ที่ทำหน้าที่คัดกรอง (Triage) ผู้ป่วยวิกฤตด้วยความเมตตาเชิงรุก (Active Karuna) โดยรักษาข้อมูลทั้งหมดไว้ในประเทศไทย 100% (Sovereign Grid)
+## 🧠 Core Philosophy
 
-## 🚀 Key Features (ฟีเจอร์เด็ด)
-* [cite_start]**🏥 Multi-Modal Triage:** วิเคราะห์ความเสี่ยงจาก 3 มิติ: ข้อความ (Text), น้ำเสียง (Voice Features), และสีหน้า (Facial Features) [cite: 81-125]
-* [cite_start]**🛡️ Dhammic Moat (Ethical Kernel):** แกนกลางจริยธรรมที่ฝังลึกในระดับ Code (Hard-coded constraints) ไม่ใช่แค่ Prompt ตัดสินใจบนฐานของ "Right Speech", "Compassion", และ "Mindfulness" [cite: 81-125]
-* [cite_start]**⚡ Non-Blocking Architecture:** แก้ปัญหาคอขวดด้วยการแยก Background Tasks ออกจาก Main Event Loop และใช้ Connection Pool สำหรับ SQLite (WAL Mode) รองรับ Concurrency สูง [cite: 142-150]
-* [cite_start]**🇹🇭 Sovereign Grid Intelligence:** เก็บข้อมูลอ่อนไหวทั้งหมดลง Local Database (`namo_nexus_sovereign.db`) ภายในเซิร์ฟเวอร์องค์กร ไม่มีการส่งข้อมูลออกนอกประเทศ [cite: 112, 142]
-* [cite_start]**🤝 Harmonic Console Bridge:** เตรียม API พร้อมส่งต่อเคสวิกฤตให้เจ้าหน้าที่มนุษย์ พร้อม "Empathy Prompts" แนะนำวิธีการพูดคุย [cite: 134-138, 177]
+NamoNexus is not just a chatbot. It is a **Sovereign AI Infrastructure** designed to operate independently (On-Premise) with a unique "Identity Capsule" architecture. It prioritizes **Non-Verbal Cues (Voice/Face)** over text using the **Golden Ratio ($\phi \approx 1.618$)**, allowing it to detect hidden emotions and deception.
 
-## Release Highlights
-Blockers resolved, PDPA/GDPR compliant, Docker secure.
+## ✨ Key Features (Selling Points)
 
-## Harmonic Architecture (Golden Ratio)
-```python
-GOLDEN_RATIO = (1 + 5**0.5) / 2
+### 1. 🧬 Identity Capsule v1.1
 
+- **Dynamic Personality:** The AI's personality is not hardcoded but loaded from JSON capsules.
+- **Evolutionary Memory:** Capable of "Reflecting" on past sessions to evolve its state using `ConsciousEvolutionLattice`.
 
-def calculate_harmonic_risk(primary_risk: float, secondary_risk: float) -> float:
-    blended = (primary_risk * GOLDEN_RATIO + secondary_risk) / (GOLDEN_RATIO + 1)
-    return max(0.0, min(1.0, blended))
+### 2. 🔮 Sixth Sense Engine (Multimodal Fusion)
 
+- **Golden Ratio Logic:** Weights Non-Verbal signals ($61.8\%$) higher than Text ($38.2\%$).
+- **Deception Detection:** Instantly flags "White Lies" (e.g., saying "I'm okay" with a distressed voice).
 
-def fibonacci_retry(attempt: int, base_seconds: float = 0.5, max_seconds: float = 30.0) -> float:
-    if attempt <= 0:
-        return 0.0
-    a, b = 0, 1
-    for _ in range(attempt):
-        a, b = b, a + b
-    delay = a * base_seconds
-    return max(0.0, min(delay, max_seconds))
+### 3. 🛡️ Sovereign Security (Dhammic Moat)
+
+- **Token-Based Auth:** Enterprise-grade Bearer Token security.
+- **Local Execution:** Runs 100% offline/local. No data leakage to external clouds.
+- **Privacy First:** Built-in PII redaction and encrypted storage (SQLCipher).
+
+## 🚀 Quick Start (Installation)
+
+**Prerequisites:**
+
+- Python 3.10+
+- FFmpeg (for Audio Triage)
+
+**1. Clone & Install**
+
+```bash
+git clone https://github.com/icezingza/NamoNexus_v1.0.git
+cd NamoNexus
+pip install -r requirements.txt
 ```
 
 ## 🛠️ Tech Stack
+
 * **Core:** Python 3.11, FastAPI
-* **Database:** SQLite (WAL Mode) with Thread-safe Connection Pool
-* **Deployment:** Docker, Docker Compose (Optimized for Production)
-* **Performance:** Async/Await Concurrency + Background Tasks
+- **Database:** SQLite (WAL Mode) with Thread-safe Connection Pool
+- **Deployment:** Docker, Docker Compose (Optimized for Production)
+- **Performance:** Async/Await Concurrency + Background Tasks
 
 ## 📦 Quick Start
+
 ```bash
 # 1. Clone & Enter
 git clone https://github.com/icezingza/NamoNexus-Enterprise-v3.5.1.git
@@ -63,6 +71,7 @@ alignment guidance, and persistent memory. It exposes a lightweight API for
 production use and keeps advanced research modules under the `research/` directory.
 
 ## Features
+
 - Emotion analysis and tone detection
 - Safety screening with escalation handling
 - Personalized responses with alignment insights
@@ -71,7 +80,9 @@ production use and keeps advanced research modules under the `research/` directo
 - Rate limiting on `/triage` (and aliases `/interact`, `/reflect`)
 
 ## v3.5.1 scope (production)
+
 Included:
+
 - EmotionService (keyword-based Thai/English)
 - SafetyService (crisis detection + escalation)
 - DharmaService (alignment analysis)
@@ -80,27 +91,36 @@ Included:
 - Health/readiness probes and metrics
 
 Research-only (v2.0+):
+
 - IntegrityKernel and supervisor chain
 - Temporal reasoning and simulation modules
 - Experimental emotion models
 
 ## Quick start
+
 Requirements: Python 3.11+
 
 1. Create a virtual environment:
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # Windows: venv\Scripts\activate
    ```
+
 2. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
+
 3. Initialize the database:
+
    ```bash
    alembic upgrade head
    ```
+
 4. Start the API:
+
    ```bash
    python main.py
    ```
@@ -112,9 +132,11 @@ For a lightweight dev stack without auth/Celery, use `python src/main.py`.
 Optional frontend: open `frontend/index.html` for the Harmonic Alignment Console.
 
 ## Configuration
+
 Copy `.env.example` to `.env` and adjust values as needed.
 
 Core settings:
+
 - `API_HOST`, `API_PORT`
 - `DEBUG`, `LOG_LEVEL`
 - `DATABASE_URL`
@@ -122,6 +144,7 @@ Core settings:
 - `MAX_MEMORY_ITEMS`, `MEMORY_RETENTION_DAYS`
 
 Enterprise API settings (main.py):
+
 - `NAMO_NEXUS_TOKEN` (required; generated at startup if missing)
 - `DB_PATH`
 - `CORS_ALLOW_ORIGINS`
@@ -132,6 +155,7 @@ Advanced stack settings live under `NAMO_*` variables (see `.env.example`).
 Set `AUTO_CREATE_DB=true` only for local dev convenience; production should use Alembic migrations.
 
 ## API endpoints (primary: `main.py`)
+
 - `GET /health` - Health and version
 - `GET /healthz` - Liveness probe (alias)
 - `GET /ready` - Readiness probe
@@ -146,6 +170,7 @@ Set `AUTO_CREATE_DB=true` only for local dev convenience; production should use 
 Lightweight dev stack (`src/main.py`) exposes `/interact`, `/reflect`, `/healthz`, `/readyz`, and `/api/status` without auth.
 
 Example request:
+
 ```bash
 curl -X POST http://localhost:8000/triage \
   -H "Content-Type: application/json" \
@@ -154,6 +179,7 @@ curl -X POST http://localhost:8000/triage \
 ```
 
 Example response:
+
 ```json
 {
   "response": "...",
@@ -171,6 +197,7 @@ Example response:
 The request body accepts `message` and `user_id` with optional `session_id`, `voice_features`, and `facial_features`.
 
 ## Database and migrations
+
 ```bash
 alembic revision --autogenerate -m "Describe change"
 alembic upgrade head
@@ -181,47 +208,57 @@ alembic history
 Default (SQLite): `sqlite:///./namonexus.db`
 
 For PostgreSQL, set `DATABASE_URL` to:
+
 ```
 postgresql://namonexus:password@db:5432/namonexus
 ```
 
 ## Testing
+
 ```bash
 pytest src/tests/ -v
 pytest src/tests/ --cov=src --cov-report=html
 ```
 
 Live API check (Windows):
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File test_api_live.ps1
 ```
 
 Diagnostics:
+
 - Windows: `diagnostic.ps1`
 - Linux/Mac: `diagnostic.sh`
 
 ## Docker
+
 Build:
+
 ```bash
 docker build -t namonexus:3.5.1 .
 ```
 
 Run:
+
 ```bash
 docker run -p 8000:8080 -e PORT=8080 namonexus:3.5.1
 ```
 
 ## Docker Compose
+
 ```bash
 docker compose up --build
 ```
 
 To use PostgreSQL, update `DATABASE_URL` in `.env` and run:
+
 ```bash
 docker compose --profile postgres up --build
 ```
 
 ## Project structure
+
 ```
 namonexus/
 ├── src/
@@ -248,7 +285,9 @@ Production services live under `src/services/`. Legacy modules under `src/*_serv
 remain for backward compatibility and are not wired to the API.
 
 ## Troubleshooting
+
 Port already in use:
+
 ```bash
 # Linux/Mac
 lsof -i :8000
@@ -257,15 +296,18 @@ netstat -ano | findstr :8000
 ```
 
 Reset local SQLite database:
+
 ```bash
 rm namonexus.db
 alembic upgrade head
 ```
 
 Run a single test:
+
 ```bash
 pytest src/tests/test_api.py::test_health_endpoint -v
 ```
 
 ## License
+
 Licensed under the NamoNexus Commercial License. See LICENSE-COMMERCIAL.

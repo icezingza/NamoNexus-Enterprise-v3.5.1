@@ -210,14 +210,15 @@ class MultiModalTriageEngine:
         outer_brow_raise = facial_features.get("au2", 0.0)
         lip_corner_depressor = facial_features.get("au15", 0.0)
 
-        risk_score = (
-            inner_brow_raise * 0.4
-            + outer_brow_raise * 0.3
-            + lip_corner_depressor * 0.3
+        # FIX: Use max to ensure strong single indicators aren't diluted
+        risk_score = max(
+            inner_brow_raise,
+            lip_corner_depressor,
+            outer_brow_raise * 0.5
         )
         return {
             "risk_score": min(risk_score, 1.0),
-            "confidence": 0.55,
+            "confidence": 0.8 if risk_score > 0.7 else 0.55,
             "method": "facial_heuristics",
         }
 
@@ -250,7 +251,7 @@ class MultiModalTriageEngine:
             weights = {
                 "text": REMAINDER,
                 "voice": INV_PHI if voice_features else 0.0,
-                "facial": 0.2 if facial_features else 0.0,
+                "facial": INV_PHI if facial_features else 0.0,
             }
             total_weight = sum(weights.values()) or 1.0
             normalized = {key: value / total_weight for key, value in weights.items()}

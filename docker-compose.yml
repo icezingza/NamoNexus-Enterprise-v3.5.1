@@ -5,9 +5,9 @@ services:
     container_name: namo_enterprise_v3
     restart: always
     ports:
-      - "8080:8080"
+      - "8000:8000"
     volumes:
-      - ./namo_data:/app/data  # Mount folder to keep SQLite WAL files
+      - ./namo_data:/app/data # Mount folder to keep SQLite WAL files
     environment:
       - DB_PATH=/app/data/namo_nexus_sovereign.db
     deploy:

@@ -1,20 +1,23 @@
-.git
-.github
-.pytest_cache
+# .dockerignore
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-*.swp
-*.log
-logs
-venv
-venv313
-data/chroma_db
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.coverage
+.tox/
+.coverage
+.cache
+.git
+.gitignore
+*.md
 tests
-frontend/node_modules
-*.env*
-*.db
-*.key
-*.sqlite
-*.log
+# ข้ามไฟล์เทสเสียงหนักๆ (ถ้าไม่อยากให้ Image บวม)
+Audio test/
+*.mp3
+*.wav
