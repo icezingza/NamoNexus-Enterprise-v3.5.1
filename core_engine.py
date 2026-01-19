@@ -82,10 +82,11 @@ class DhammicDataLake:
 class MultiModalTriageEngine:
     """Multimodal triage combining text, voice, and facial cues."""
 
-    def __init__(self) -> None:
+    def __init__(self, identity_patterns: Optional[Dict] = None) -> None:
         self.logger = logging.getLogger("namo_nexus.triage")
         self.dhammic_lake = DhammicDataLake()
         self.text_patterns = _CORE_CONFIG["text_patterns"]
+        self.identity_patterns = identity_patterns or {}
 
     def _validate_input(
         self,
@@ -115,6 +116,22 @@ class MultiModalTriageEngine:
         risk_score = min(0.1 + (base_score * severity_multiplier), 1.0)
         confidence = 0.5 + min(base_score, 0.4)
         matched_category = "low"
+
+        # Check identity capsule patterns
+        capsule_patterns = self.identity_patterns.get("patterns", {})
+        for pattern_name, data in capsule_patterns.items():
+            triggers = data.get("triggers", [])
+            if any(trigger in text_lower for trigger in triggers):
+                severity = data.get("severity", "medium")
+                if severity == "high":
+                    risk_score = max(risk_score, 0.85)
+                    confidence = max(confidence, 0.9)
+                    matched_category = "severe"
+                elif severity == "medium":
+                    risk_score = max(risk_score, 0.6)
+                    matched_category = "high" if matched_category != "severe" else matched_category
+                self.logger.info(f"Identity pattern matched: {pattern_name}")
+                break
 
         for category, keywords in self.text_patterns.items():
             if any(keyword in text_lower for keyword in keywords):
@@ -322,11 +339,18 @@ class EthicalCalibrationKernel:
             tone = "positive"
 
         recommendation = self._recommendation_for_score(multimodal.combined_risk)
+        
+        final_risk_level = safety["risk_level"]
+        if multimodal.combined_risk > 0.85:
+            final_risk_level = "severe"
+        elif multimodal.combined_risk > 0.6 and final_risk_level == "low":
+            final_risk_level = "moderate"
+            
         result = {
             "dharma_score": dharma["dharma_score"],
             "principles": dharma["principles"],
-            "risk_level": safety["risk_level"],
-            "requires_human": safety["requires_human"],
+            "risk_level": final_risk_level,
+            "requires_human": safety["requires_human"] or final_risk_level == "severe",
             "emotional_tone": tone,
             "intervention": safety["intervention_type"],
             "ethics_passed": ethics_passed,
@@ -343,10 +367,10 @@ class EthicalCalibrationKernel:
 class HarmonicGovernor:
     """Orchestrates triage, ethics calibration, and auditing."""
 
-    def __init__(self) -> None:
+    def __init__(self, identity_patterns: Optional[Dict] = None) -> None:
         self.logger = logging.getLogger("namo_nexus.governor")
         self.agents = {
-            "triage": MultiModalTriageEngine(),
+            "triage": MultiModalTriageEngine(identity_patterns=identity_patterns),
             "ethics": EthicalCalibrationKernel(),
             "conversation": None,
             "auditor": self._create_auditor(),

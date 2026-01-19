@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: namonexus-enterprise
+  labels:
+    app: namonexus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namonexus
+  template:
+    metadata:
+      labels:
+        app: namonexus
+    spec:
+      containers:
+      - name: namonexus-api
+        image: namonexus:latest  # เปลี่ยนเป็น Image ของพี่จริง
+        ports:
+        - containerPort: 8000
+        
+        # 🩺 Liveness Probe: ตรวจสอบว่า "วิญญาณ" ยังอยู่ไหม (ถ้าตาย K8s จะ Restart Pod)
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 15  # รอ 15 วินาทีหลังเริ่มรันก่อนเช็คครั้งแรก
+          periodSeconds: 20        # เช็คทุกๆ 20 วินาที
+          timeoutSeconds: 5        # ถ้าตอบช้ากว่า 5 วิ ถือว่าล้มเหลว
+          failureThreshold: 3      # ถ้าล้มเหลว 3 ครั้งติดกัน ให้ Restart
+
+        # 🚦 Readiness Probe: ตรวจสอบว่า "พร้อมรับงาน" หรือยัง (ถ้ายัง K8s จะไม่ส่ง Traffic มา)
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"

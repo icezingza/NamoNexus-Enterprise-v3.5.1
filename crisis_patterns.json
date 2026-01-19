@@ -1,0 +1,41 @@
+{
+    "meta": {
+        "version": "1.1",
+        "last_updated": "2026-01-19T14:30:00Z",
+        "status": "active"
+    },
+    "patterns": {
+        "leadership_crisis": {
+            "triggers": [
+                "loss of direction",
+                "team burnout",
+                "decision paralysis",
+                "ไม่รู้ทิศทาง",
+                "ทีมงานหมดไฟ",
+                "ตัดสินใจไม่ได้",
+                "หมดไฟ"
+            ],
+            "severity": "high",
+            "resolution_strategy": "reconnect_with_vision"
+        },
+        "technical_debt": {
+            "triggers": [
+                "spaghetti code",
+                "slow performance",
+                "security vulnerabilities",
+                "โค้ดเละ",
+                "ระบบช้า",
+                "ช่องโหว่"
+            ],
+            "severity": "medium",
+            "resolution_strategy": "refactor_and_optimize"
+        }
+    },
+    "evolution_stage": 1.618,
+    "stability_index": 0.95,
+    "dhammic_principles": [
+        "Sati (Mindfulness)",
+        "Metta (Loving-kindness)",
+        "Panna (Wisdom)"
+    ]
+}

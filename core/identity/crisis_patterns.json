@@ -1,0 +1,24 @@
+{
+  "leadership_crisis": {
+    "evolution_stage": 1.618,
+    "stability_index": 0.75,
+    "learning_rate": 0.6,
+    "patterns": [
+      "team burnout",
+      "loss of direction",
+      "low motivation",
+      "disconnection from purpose"
+    ],
+    "resolution_paths": [
+      "reconnect with vision",
+      "team alignment",
+      "energy renewal",
+      "dhammic empathy"
+    ],
+    "insights": [
+      "The team reflects the leader's energy.",
+      "Burnout is often a sign of misaligned purpose, not just overwork.",
+      "True leadership requires vulnerability."
+    ]
+  }
+}

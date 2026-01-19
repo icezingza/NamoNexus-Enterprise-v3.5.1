@@ -1,14 +1,14 @@
-﻿import os
+import os
 import sys
 import pkg_resources
 from pkg_resources import DistributionNotFound, VersionConflict
 
 def check_dependencies():
-    print("๐” [Step 1] Checking Dependencies...")
+    print("🔍 [Step 1] Checking Dependencies...")
     requirements_path = 'requirements.txt'
     
     if not os.path.exists(requirements_path):
-        print(f"โ Error: {requirements_path} not found!")
+        print(f"❌ Error: {requirements_path} not found!")
         return False
 
     with open(requirements_path, 'r') as f:
@@ -21,44 +21,44 @@ def check_dependencies():
 
     try:
         pkg_resources.require(requirements)
-        print("โ… All dependencies are installed.")
+        print("✅ All dependencies are installed.")
         return True
     except (DistributionNotFound, VersionConflict) as e:
-        print(f"โ Dependency Issue: {e}")
-        print("๐‘ Please run: pip install -r requirements.txt")
+        print(f"❌ Dependency Issue: {e}")
+        print("👉 Please run: pip install -r requirements.txt")
         return False
 
 def check_identity_capsule():
-    print("\n๐” [Step 2] Checking Identity Capsule...")
+    print("\n🔍 [Step 2] Checking Identity Capsule...")
     identity_path = os.path.join('core', 'identity')
     
     if not os.path.exists(identity_path):
-        print(f"โ Error: Directory '{identity_path}' not found.")
-        print("๐‘ Please ensure the 'core/identity' folder exists.")
+        print(f"❌ Error: Directory '{identity_path}' not found.")
+        print("👉 Please ensure the 'core/identity' folder exists.")
         return False
     
     files = os.listdir(identity_path)
     if not files:
-        print(f"โ ๏ธ  Warning: '{identity_path}' is empty.")
+        print(f"⚠️  Warning: '{identity_path}' is empty.")
         return False
         
-    print(f"โ… Identity Capsule found ({len(files)} files).")
+    print(f"✅ Identity Capsule found ({len(files)} files).")
     return True
 
 def check_tests_structure():
-    print("\n๐” [Step 3] Checking Test Suite...")
+    print("\n🔍 [Step 3] Checking Test Suite...")
     tests_path = 'tests'
     health_test_path = os.path.join(tests_path, 'test_health.py')
     
     if not os.path.exists(tests_path):
-        print(f"โ Error: Directory '{tests_path}' not found.")
+        print(f"❌ Error: Directory '{tests_path}' not found.")
         return False
     
     if not os.path.exists(health_test_path):
-        print(f"โ Error: File '{health_test_path}' not found.")
+        print(f"❌ Error: File '{health_test_path}' not found.")
         return False
         
-    print(f"โ… Test Suite found ('{tests_path}' directory and health check).")
+    print(f"✅ Test Suite found ('{tests_path}' directory and health check).")
     return True
 
 if __name__ == "__main__":
@@ -68,6 +68,6 @@ if __name__ == "__main__":
     tests_ok = check_tests_structure()
     
     if deps_ok and capsule_ok and tests_ok:
-        print("\n๐€ System Ready for Ignition!")
+        print("\n🚀 System Ready for Ignition!")
     else:
-        print("\n๐‘ Please fix the issues above before starting.")
+        print("\n🛑 Please fix the issues above before starting.")
