@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NaMo Harmonic Alignment Console</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div class="app">
     <h1>NaMo Harmonic Alignment Console</h1>
@@ -16,12 +18,19 @@
       <span id="status-risk-score">Score: N/A</span>
       <span id="status-tone">Tone: N/A</span>
       <span id="status-coherence">Coherence: N/A</span>
+      <button id="btn-refresh-spec"
+        style="margin-left: 10px; padding: 2px 8px; cursor: pointer; font-size: 0.8rem;">Refresh API Spec</button>
     </div>
     <div class="chat-window" id="chat-window"></div>
     <div class="input-row">
       <input type="text" id="chat-input" placeholder="Share your thoughts...">
       <button id="send-btn">Send</button>
     </div>
+  </div>
+  <div id="api-spec-container"
+    style="margin: 20px; padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 8px; display: none; font-family: monospace;">
+    <h3 style="margin-top: 0; color: #333;">🔌 API Capabilities (Auto-Discovery)</h3>
+    <ul id="api-endpoints-list" style="padding-left: 20px; color: #555;"></ul>
   </div>
   <script>
     const harmonicAlignmentOrb = document.getElementById('harmonic-alignment-orb');
@@ -79,7 +88,167 @@
       }
       return response;
     };
+
+    // --- API Spec Auto-Discovery Logic (Mission: Swagger Integration) ---
+    const btnRefreshSpec = document.getElementById('btn-refresh-spec');
+    const apiContainer = document.getElementById('api-spec-container');
+    const apiList = document.getElementById('api-endpoints-list');
+
+    const FALLBACK_SPEC = {
+      info: { title: "NamoNexus (Offline Mode)", version: "3.5.1" },
+      paths: {
+        "/triage": { post: { summary: "Analyze text (Fallback)" } },
+        "/health": { get: { summary: "System health (Fallback)" } }
+      }
+    };
+
+    async function loadApiSpec() {
+      try {
+        // Default Assumption: Fetch from localhost:8000/openapi.json
+        const response = await fetch('http://localhost:8000/openapi.json');
+        if (!response.ok) throw new Error("Network response was not ok");
+        const spec = await response.json();
+
+        // Update Chatbot Context
+        window.namoApiSpec = spec;
+        localStorage.setItem('namo_api_spec', JSON.stringify(spec));
+
+        renderSpec(spec);
+        console.log("✅ API Spec refreshed from server");
+      } catch (e) {
+        console.warn("⚠️ Failed to fetch API spec, using fallback/cache", e);
+        const cached = localStorage.getItem('namo_api_spec');
+        if (cached) {
+          renderSpec(JSON.parse(cached));
+        } else {
+          renderSpec(FALLBACK_SPEC);
+        }
+      }
+    }
+
+    function renderSpec(spec) {
+      if (!apiList) return;
+      apiList.innerHTML = '';
+      apiContainer.style.display = 'block';
+
+      Object.keys(spec.paths).forEach(path => {
+        const methods = spec.paths[path];
+        Object.keys(methods).forEach(method => {
+          const operation = methods[method];
+          const li = document.createElement('li');
+          li.style.marginBottom = "10px";
+
+          // Header row
+          const headerDiv = document.createElement('div');
+          headerDiv.innerHTML = `<strong style="color: #009688; cursor: pointer;">${method.toUpperCase()}</strong> ${path} <span style="color: #888;">- ${operation.summary || ''}</span> <button class="try-btn" style="font-size: 0.7rem; margin-left: 10px; cursor: pointer;">Try It Out</button>`;
+          li.appendChild(headerDiv);
+
+          // Try It Out Section (Hidden by default)
+          const tryDiv = document.createElement('div');
+          tryDiv.style.display = 'none';
+          tryDiv.style.marginTop = '10px';
+          tryDiv.style.padding = '10px';
+          tryDiv.style.background = '#f9f9f9';
+          tryDiv.style.border = '1px solid #eee';
+          tryDiv.style.borderRadius = '4px';
+
+          // Form Generation based on path
+          let formHtml = '';
+          if (path === '/triage') {
+            formHtml = `
+              <div style="margin-bottom: 5px;"><label>User ID:</label> <input type="text" class="req-user-id" value="demo_user" style="width: 100px;"></div>
+              <div style="margin-bottom: 5px;"><label>Message:</label> <input type="text" class="req-message" value="I feel anxious" style="width: 200px;"></div>
+            `;
+          } else if (path === '/triage/audio') {
+            formHtml = `
+              <div style="margin-bottom: 5px;"><label>User ID:</label> <input type="text" class="req-user-id" value="demo_audio_user" style="width: 100px;"></div>
+              <div style="margin-bottom: 5px;"><label>Audio File:</label> <input type="file" class="req-file" accept=".wav,.mp3"></div>
+            `;
+          } else {
+            formHtml = `<div style="color: #888; font-style: italic;">No input parameters required for this demo.</div>`;
+          }
+
+          tryDiv.innerHTML = `
+            ${formHtml}
+            <button class="execute-btn" style="margin-top: 5px; background: #009688; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Execute</button>
+            <div class="response-area" style="margin-top: 10px; display: none;">
+              <strong>Response:</strong>
+              <pre style="background: #333; color: #0f0; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 0.8rem;"></pre>
+            </div>
+          `;
+
+          li.appendChild(tryDiv);
+          apiList.appendChild(li);
+
+          // Event Listeners
+          const tryBtn = headerDiv.querySelector('.try-btn');
+          tryBtn.addEventListener('click', () => {
+            tryDiv.style.display = tryDiv.style.display === 'none' ? 'block' : 'none';
+            tryBtn.textContent = tryDiv.style.display === 'none' ? 'Try It Out' : 'Close';
+          });
+
+          const execBtn = tryDiv.querySelector('.execute-btn');
+          const respArea = tryDiv.querySelector('.response-area');
+          const respPre = respArea.querySelector('pre');
+
+          execBtn.addEventListener('click', async () => {
+            respArea.style.display = 'block';
+            respPre.textContent = 'Loading...';
+
+            try {
+              let url = `http://localhost:8000${path}`;
+              let options = { method: method.toUpperCase() };
+
+              // Construct Request Body
+              if (path === '/triage') {
+                const userId = tryDiv.querySelector('.req-user-id').value;
+                const message = tryDiv.querySelector('.req-message').value;
+                options.headers = {
+                  'Content-Type': 'application/json',
+                  // Note: In real app, handle auth token properly
+                  'Authorization': 'Bearer DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8='
+                };
+                options.body = JSON.stringify({ user_id: userId, message: message });
+              } else if (path === '/triage/audio') {
+                const userId = tryDiv.querySelector('.req-user-id').value;
+                const fileInput = tryDiv.querySelector('.req-file');
+                if (fileInput.files.length === 0) {
+                  respPre.textContent = 'Error: Please select a file.';
+                  return;
+                }
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                formData.append('audio', fileInput.files[0]); // Changed key to 'audio' to match backend fix
+
+                options.headers = {
+                  'Authorization': 'Bearer DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8='
+                };
+                options.body = formData;
+              }
+
+              const res = await fetch(url, options);
+              const status = res.status;
+              let data;
+              try {
+                data = await res.json();
+              } catch (e) {
+                data = await res.text();
+              }
+
+              respPre.textContent = `Status: ${status}\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (err) {
+              respPre.textContent = `Error: ${err.message}`;
+            }
+          });
+        });
+      });
+    }
+
+    if (btnRefreshSpec) btnRefreshSpec.addEventListener('click', loadApiSpec);
+    // Auto-load on start
+    loadApiSpec();
   </script>
   <script src="app.js"></script>
 </body>
+
 </html>

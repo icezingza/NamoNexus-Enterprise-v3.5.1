@@ -9,7 +9,9 @@ if sys.platform == "win32":
 
 def run_multimodal_mission():
     base_url = "http://127.0.0.1:8000"
-    token = os.getenv("NAMO_NEXUS_TOKEN", "DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8=")
+    token = os.getenv("NAMO_NEXUS_TOKEN")
+    if not token:
+        raise ValueError("Missing NAMO_NEXUS_TOKEN env var")
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"

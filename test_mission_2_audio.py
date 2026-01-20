@@ -7,7 +7,9 @@ import glob
 AUDIO_DIR = r"D:\Users\NamoNexus Enterprise v3.5.1\Audio test"
 API_URL = "http://127.0.0.1:8000/triage/audio"
 # Retrieve token from env or use default for local dev
-TOKEN = os.getenv("NAMO_NEXUS_TOKEN", "DwTuv-cSiI2XwdQ4FoaNih5qGUUbru_yrD3-IvJKUw8=")
+TOKEN = os.getenv("NAMO_NEXUS_TOKEN")
+if not TOKEN:
+    raise ValueError("Missing NAMO_NEXUS_TOKEN env var")
 
 def run_mission_2_real():
     print(f"\n🎧 --- MISSION 2: REAL AUDIO TEST INITIATED ---")
