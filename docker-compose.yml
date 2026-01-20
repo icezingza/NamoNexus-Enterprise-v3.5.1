@@ -1,17 +1,17 @@
-version: "3.8"
+version: '3.8'
+
 services:
   namo-nexus:
     build: .
-    container_name: namo_enterprise_v3
-    restart: always
+    container_name: namo_nexus_enterprise
     ports:
       - "8000:8000"
     volumes:
-      - ./namo_data:/app/data # Mount folder to keep SQLite WAL files
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Mount core code for hot-reload during dev (optional)
+      # - ./core:/app/core
     environment:
-      - DB_PATH=/app/data/namo_nexus_sovereign.db
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 2G
+      - NAMO_NEXUS_TOKEN=dev-token-123
+      - ENVIRONMENT=development
+    restart: unless-stopped

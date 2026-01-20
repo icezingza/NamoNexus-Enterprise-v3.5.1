@@ -3,6 +3,7 @@ import functools
 import logging
 import math
 import os
+import sys
 import json
 import secrets
 import threading
@@ -10,6 +11,10 @@ import time
 import uuid
 from datetime import datetime
 from typing import Dict
+from pathlib import Path
+
+# Fix imports for new structure (api/main.py -> root)
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -443,7 +448,7 @@ async def triage_audio_endpoint(
     # Extract voice features (run in thread pool to not block)
     # BYPASS: Wrap in broad try/except to ensure 200 OK even if audio libs fail
     try:
-        from voice_extractor import voice_extractor
+        from core.voice_extractor import voice_extractor
         voice_result = await asyncio.to_thread(
             voice_extractor.extract_from_bytes,
             audio_bytes,

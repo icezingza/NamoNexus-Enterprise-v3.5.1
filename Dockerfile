@@ -40,4 +40,4 @@ USER namo_user
 EXPOSE 8000
 
 # 9. Ignition Command (เดินเครื่อง!)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

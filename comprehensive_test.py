@@ -107,7 +107,7 @@ def test_audio_endpoint():
     print("="*70)
     
     # Check if test audio exists
-    audio_files = ["test_audio.wav", "test_audio.mp3", "sample.wav"]
+    audio_files = ["test_audio.wav", "test_audio.mp3", "sample.wav", os.path.join("Audio test", "test_sine.wav")]
     audio_file = None
     
     for f in audio_files:
